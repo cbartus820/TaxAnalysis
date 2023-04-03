@@ -9,7 +9,7 @@ Dim DestName As Long
 Dim SitusName As Long
 Dim LoopCell As Range
 Dim StateString As String
-Dim VertexShipTo As Long
+Dim vertexShipTo As Long
 Dim ShipToMatch As Long
 Dim VertexShipToRange As Range
 Dim SageTrimmedInvoiceNo As Range
@@ -80,13 +80,13 @@ Sage.Range("AQ:AQ").Insert
 Sage.Range("AQ1").Value = "Vertex ShipTo"
 Sage.Range("AQ:AQ").Insert
 Sage.Range("AQ1").Value = "ShipToMatch"
-VertexShipTo = WorksheetFunction.Match("Vertex ShipTo", Sage.Range("1:1"), 0)
+vertexShipTo = WorksheetFunction.Match("Vertex ShipTo", Sage.Range("1:1"), 0)
 ShipToMatch = WorksheetFunction.Match("ShipToMatch", Sage.Range("1:1"), 0)
 SageTrimmed = WorksheetFunction.Match("Trimmed Invoice No", Sage.Range("1:1"), 0)
 VertexTrimmed = WorksheetFunction.Match("Trimmed Invoice No", Vertex.Range("1:1"), 0)
 
 Set VertexTrimmedInvoiceNo = Vertex.Range(Vertex.Cells(2, VertexTrimmed), Vertex.Cells(V_Last_Row, VertexTrimmed))
-Set VertexShipToRange = Sage.Range(Sage.Cells(2, VertexShipTo), Sage.Cells(S_Last_Row, VertexShipTo))
+Set VertexShipToRange = Sage.Range(Sage.Cells(2, vertexShipTo), Sage.Cells(S_Last_Row, vertexShipTo))
 
 For Each LoopCell In VertexShipToRange
 On Error Resume Next
@@ -95,7 +95,7 @@ Sage.Cells(LoopCell.row, LoopCell.Column - 1).Value = "=AR" & LoopCell.row & "=A
 Next LoopCell
 
 Call ExtractErrors
-
+Call CreateWrikeUploadSheet
 
 End Sub
 
@@ -305,11 +305,11 @@ End Function
 Sub ExtractErrors()
     Dim SageSheet As Worksheet
     Dim ErrorSheet As Worksheet
-    Dim lastRow As Long
+    Dim LastRow As Long
     Dim i As Long
-    Dim InvoiceNo As String
+    Dim invoiceNo As String
     Dim ShipToState As String
-    Dim TaxSchedule As String
+    Dim taxSchedule As String
     Dim ShipToStateCol As Long
     Dim TaxScheduleCol As Long
     Dim InvoiceCol As Long
@@ -338,20 +338,20 @@ Sub ExtractErrors()
     ErrorSheet.Name = "Error Report"
     
     'Get the last row of data in the Sage sheet
-    lastRow = SageSheet.Cells(SageSheet.Rows.Count, 1).End(xlUp).row
+    LastRow = SageSheet.Cells(SageSheet.Rows.Count, 1).End(xlUp).row
     
     'Copy column headers to error sheet
     SageSheet.Rows(1).Copy Destination:=ErrorSheet.Rows(1)
     
     'Loop through each row in the Sage sheet and check the conditions
-    For i = 2 To lastRow 'assuming row 1 contains headers
-    InvoiceNo = SageSheet.Cells(i, InvoiceCol).Value
+    For i = 2 To LastRow 'assuming row 1 contains headers
+    invoiceNo = SageSheet.Cells(i, InvoiceCol).Value
     ShipToState = SageSheet.Cells(i, ShipToStateCol).Value
-    TaxSchedule = SageSheet.Cells(i, TaxScheduleCol).Value
+    taxSchedule = SageSheet.Cells(i, TaxScheduleCol).Value
     SalespersonNo = SageSheet.Cells(i, SalespersonNoCol).Value
     
     'Check if invoice number starts with a letter
-    If Not IsNumeric(Left(InvoiceNo, 1)) Then
+    If Not IsNumeric(Left(invoiceNo, 1)) Then
         'Skip this row
         GoTo NextRow
     End If
@@ -365,13 +365,13 @@ Sub ExtractErrors()
     'Check if ShipToMatch is false
     If SageSheet.Cells(i, SageSheet.Cells.Find("ShipToMatch").Column).Value = False Then
         'Check if ShipToState is FL and tax schedule is MKTPLCFAC
-        If ShipToState = "FL" And TaxSchedule = "MKTPLCFAC" Then
+        If ShipToState = "FL" And taxSchedule = "MKTPLCFAC" Then
             'Skip this row
             GoTo NextRow
-        ElseIf ShipToState <> "FL" And TaxSchedule = "MKTPLCFAC" Then
+        ElseIf ShipToState <> "FL" And taxSchedule = "MKTPLCFAC" Then
             'Copy the row to the Error sheet
             Set errorRange = getErrorRange(errorRange, SageSheet.Rows(i))
-        ElseIf ShipToState = "FL" And TaxSchedule <> "MKTPLCFAC" Then
+        ElseIf ShipToState = "FL" And taxSchedule <> "MKTPLCFAC" Then
             'Copy the row to the Error sheet
             Set errorRange = getErrorRange(errorRange, SageSheet.Rows(i))
         Else
@@ -406,6 +406,8 @@ Application.Calculation = xlCalculationAutomatic
 
 Call DeleteUnusedColumns
 
+
+
 End Sub
 
 Sub DeleteUnusedColumns()
@@ -434,4 +436,132 @@ Sub DeleteUnusedColumns()
     Next i
     
 End Sub
+
+Sub CreateWrikeUploadSheet()
+    ' Define variables
+    Dim uploadSheet As Worksheet
+    Dim errorReportSheet As Worksheet
+    Dim LastRow As Long
+    Dim i As Long
+    Dim title As String
+    Dim invoiceNo As String
+    Dim vertexShipTo As String
+    Dim ShipToState As String
+    Dim parentTask As String
+    Dim description As String
+    
+    ' Set references to sheets
+    Set errorReportSheet = ActiveWorkbook.Sheets("Error Report")
+    
+    ' Create Wrike Upload sheet if it does not exist
+    On Error Resume Next
+    Set uploadSheet = ActiveWorkbook.Sheets("Wrike Upload")
+    On Error GoTo 0
+    
+    If uploadSheet Is Nothing Then
+        Set uploadSheet = ActiveWorkbook.Sheets.Add(after:=errorReportSheet)
+        uploadSheet.Name = "Wrike Upload"
+    End If
+    
+    ' Clear existing data in upload sheet
+    uploadSheet.Cells.ClearContents
+    
+    ' Add headers to upload sheet
+    uploadSheet.Range("A1:T1").Value = Array("Key", "Folder", "Parent Task", "Default Task workflow", _
+        "Default project workflow", "Title", "Workflow", "Status", "Custom status", "Priority", _
+        "Assigned To", "Start Date", "Duration", "Duration (Hours)", "Effort", "Time Spent (Hours)", _
+        "End Date", "Depends On", "Start Date Constraint", "Description")
+    
+    ' Get last row of data in error report sheet
+    LastRow = errorReportSheet.Cells(Rows.Count, "A").End(xlUp).row
+    
+    ' Loop through each row of data in error report sheet
+    For i = 2 To LastRow
+        ' Get values from error report sheet
+        invoiceNo = errorReportSheet.Range("A" & i).Value
+        vertexShipTo = errorReportSheet.Range("M" & i).Value
+        ShipToState = errorReportSheet.Range("N" & i).Value
+        zipCode = errorReportSheet.Range("O" & i).Value
+        
+        ' Create title string
+        title = "[" & Format(errorReportSheet.Range("B" & i).Value, "yyyy-mm") & " Tax Project ] " & _
+            "Correct Invoice " & invoiceNo & " ShipToState to be " & vertexShipTo & _
+            " From " & ShipToState
+        
+        ' Create parent task string using getStateTitle function
+        parentTask = "[" & Format(errorReportSheet.Range("B" & i).Value, "yyyy-mm") & " Tax Project ] " & getStateTitle(vertexShipTo)
+        
+        ' Create description string
+        description = "The ShipToState for the Zipcode " & zipCode & " for the invoice " & invoiceNo & _
+            " is different than what is in Sage. Sage needs to be corrected for this data validation error."
+                
+        ' Add data to upload sheet
+        uploadSheet.Cells(i, 1).Value = i - 1 ' Key
+        uploadSheet.Cells(i, 6).Value = title ' Title
+        uploadSheet.Cells(i, 7).Value = "Default Workflow" ' Workflow
+        uploadSheet.Cells(i, 8).Value = "Active" ' Status
+        uploadSheet.Cells(i, 9).Value = "Assigned" ' Custom status
+        uploadSheet.Cells(i, 10).Value = "Normal" ' Priority
+        uploadSheet.Cells(i, 11).Value = "Paul Ray <paul@fotronic.com>" ' Assigned To
+        uploadSheet.Cells(i, 3).Value = parentTask ' Parent Task
+        uploadSheet.Cells(i, 20).Value = description
+   Next i
+    
+    ' Autofit columns in upload sheet
+    uploadSheet.Cells.EntireColumn.AutoFit
+End Sub
+
+Function getStateTitle(stateAbbreviation As String) As String
+    Dim stateTitles As Object
+    Set stateTitles = CreateObject("Scripting.Dictionary")
+    
+    'Add state titles to dictionary
+    stateTitles.Add "AL", "AL State Simplified Sellers Use Return"
+    stateTitles.Add "AR", "AR Excise Sales/Use Tax Report"
+    stateTitles.Add "AZ", "AZ Privilege/Use Return TPT-2"
+    stateTitles.Add "CA", "CA Sales/Use Prepayment Form"
+    stateTitles.Add "CO", "CO Retail Sales Tax Return DR0100"
+    stateTitles.Add "CT", "CT Sales/Use Tax Return OS-114"
+    stateTitles.Add "DC", "DC Sales/Use Tax Return FR-800M/Q/A"
+    stateTitles.Add "FL", "FL Sales/Use Tax Return DR-15"
+    stateTitles.Add "GA", "GA Sales/Use Tax Report ST-3"
+    stateTitles.Add "HI", "HI General Excise/Use Tax Return G-45"
+    stateTitles.Add "IA", "IA Sales/Retailer's Use Tax 32-022"
+    stateTitles.Add "ID", "ID Sales/Use Tax Return 850"
+    stateTitles.Add "IL", "IL Sales/Use Tax Return/E911 ST-1"
+    stateTitles.Add "IN", "IN Sales and Use Tax Voucher ST-103"
+    stateTitles.Add "KS", "KS Retailer's Tax Return CT-9U"
+    stateTitles.Add "KY", "KY Sales/Use Tax Return 51A102"
+    stateTitles.Add "LA", "LA Remote Sellers Sales Tax Return"
+    stateTitles.Add "MA", "MA Sales/Use Tax Return ST-9"
+    stateTitles.Add "MD", "MD Sales and Use Tax Return Form 202"
+    stateTitles.Add "MI", "MI Sales/Use/Withholding 5080 (the 20th)"
+    stateTitles.Add "MN", "MN Sales Tax Return Filed"
+    stateTitles.Add "MS", "MS Use Tax Return 72-110"
+    stateTitles.Add "NC", "NC Sales and Use Tax Return E-500"
+    stateTitles.Add "NE", "NE State/Local Sales/Use Tax Return 10"
+    stateTitles.Add "NM", "NM Combined Sales/Use Tax Report CRS-1"
+    stateTitles.Add "NV", "NV Combined Sales/Use Tax Return"
+    stateTitles.Add "NY", "NY Qtrly Sales/Use Tax Return ST-100"
+    stateTitles.Add "OH", "OH UST-1 Seller's Use"
+    stateTitles.Add "OK", "OK Vendor's Use Tax Report SVU20005"
+    stateTitles.Add "PA", "PA Sales/Use/Hotel Tax PA-3 - Monthly"
+    stateTitles.Add "RI", "RI Sales & Use Tax Return T-204M"
+    stateTitles.Add "SC", "SC Sales and Use Tax Return ST-3"
+    stateTitles.Add "TN", "TN Sales and Use Tax Return SLS 450"
+    stateTitles.Add "TX", "TX Sales/Use 01-114 Remote Seller Only"
+    stateTitles.Add "UT", "UT Sales and Use Tax Return TC-62M"
+    stateTitles.Add "VA", "VA Out-of-State Dealer Use w/Rental ST-8"
+    stateTitles.Add "WA", "WA Combined Monthly Excise Tax"
+    stateTitles.Add "WI", "WI State/County Sales/Use Tax ST-12"
+    
+    'Check if state abbreviation exists in dictionary
+    If stateTitles.Exists(stateAbbreviation) Then
+        getStateTitle = stateAbbreviation & " - " & stateTitles(stateAbbreviation)
+    Else
+        getStateTitle = "Address Validation Errors"
+    End If
+End Function
+
+
 
