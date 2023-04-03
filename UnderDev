@@ -1,0 +1,214 @@
+Sub Create_Tab_Index()
+
+Dim Index As Worksheet
+Dim LoopSheet As Worksheet
+
+Set Index = Sheets.Add
+Index.Name = "Index and Documentation"
+For i = 1 To ActiveWorkbook.Worksheets.Count
+Index.Range("A" & i).Value = ActiveWorkbook.Worksheets(i).Name
+If ActiveWorkbook.Worksheets(i).Name = "Summary" Then
+Index.Range("B" & i).Value = "The Summary Tab contains high level gross sales between various systems, and will display a variance if there is one between Sage and Vertex. It will also Summarize Marketplace Sales"
+ElseIf ActiveWorkbook.Worksheets(i).Name = "Vertex_Nontaxable" Then
+
+Next i
+
+End Sub
+
+Sub PDF_Name()
+Dim PDFNAME As String
+PDFNAME = Format(EndDate, "yyyy-mm-dd") & " " & ReconState & " Sales Tax Return as Filed"
+Summary.Range("A27").Value = PDFNAME
+Selection.Activate
+End Sub
+
+Sub File_Directory()
+
+Dim FileStringLen As Integer
+Dim String_1 As String
+Dim String_2 As String
+Dim FileDir As String
+Dim Last_Occurance As Long
+Dim Test_Var As String
+
+FileStringLen = Len(ActiveWorkbook.FullName)
+String_1 = ActiveWorkbook.FullName
+String_2 = "\"
+
+For i = FileStringLen To 1 Step -1
+Test_Var = Mid(String_1, i - 1, 1)
+If Mid(String_1, i - 1, 1) = String_2 Then
+
+Last_Occurance = i
+
+Exit For
+Else
+End If
+Next i
+
+ActiveCell.Value = Left(ActiveWorkbook.FullName, Last_Occurance - 1)
+
+
+End Sub
+
+Sub Compare_Gross()
+
+Dim Summary As Worksheet
+Dim Vertex As Worksheet
+Dim Sage As Worksheet
+
+Set Summary = ActiveWorkbook.Sheets("Summary")
+Set Vertex = ActiveWorkbook.Sheets("Vertex Pivot")
+Set Sage = ActiveWorkbook.Sheets("Sage Pivot")
+
+If Summary.Range("I4").Value <> 0 Then
+
+Taxbook.Sheets.Add
+ActiveSheet.Name = "Gross Compare"
+End If
+End Sub
+
+Sub Import_CR()
+
+Dim Credit_Report_Inquiry As String
+Dim Taxbook As Workbook
+Dim creditreport As Worksheet
+Dim FileName As String
+Dim Summary As Worksheet
+Dim ReconState As String
+
+ReconState = InputBox("What is the State?")
+Set Summary = ActiveWorkbook.Sheets("Summary")
+Set Taxbook = ActiveWorkbook
+
+ Credit_Report_Inquiry = MsgBox("Do you want to Import the Credit Report?", vbYesNo, title:="Import Credit Report?")
+ If Credit_Report_Inquiry = vbYes Then
+    FileName = "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Vertex\Vertex - Credit Report\" & Format(EndDate, "yyyy-mm") & " FOT_Credits_And_Adjuistments.csv"
+    
+    With Taxbook
+        Sheets.Add after:=ActiveWorkbook.Sheets("Vertex")
+        Set creditreport = ActiveSheet
+        creditreport.Name = "Credit Report"
+    End With
+    
+    With creditreport.QueryTables.Add(Connection:="Text;" & FileName, Destination:=creditreport.Range("A1"))
+        .TextFileParseType = xlDelimited
+        .TextFileCommaDelimiter = True
+        .Refresh
+    End With
+    
+    Summary.Range("A8:A11").EntireRow.Insert
+    Summary.Range("A8").Value = "Credits Held"
+    Summary.Range("A9").Value = "Credits Applied"
+    Summary.Range("C8").Value = "=-SUMIF('Credit Report'!D:D," & Chr(34) & ReconState & Chr(34) & ",'Credit Report'!H:H)"
+    Summary.Range("C9").Value = "=-SUMIF('Credit Report'!D:D," & Chr(34) & ReconState & Chr(34) & ",'Credit Report'!I:I)"
+    Summary.Range("E8").Value = "=SUMIF('Credit Report'!D:D," & Chr(34) & ReconState & Chr(34) & ",'Credit Report'!H:H)"
+    Summary.Range("E9").Value = "=SUMIF('Credit Report'!D:D," & Chr(34) & ReconState & Chr(34) & ",'Credit Report'!I:I)"
+    Summary.Range("G8").Value = "=SUMIF('Credit Report'!D:D," & Chr(34) & ReconState & Chr(34) & ",'Credit Report'!H:H)"
+    Summary.Range("G9").Value = "=SUMIF('Credit Report'!D:D," & Chr(34) & ReconState & Chr(34) & ",'Credit Report'!I:I)"
+    Summary.Range("A10").Value = "Adjusted Tax"
+    Summary.Range("C10").Value = "=SUM(C7,C8,C9)"
+    Summary.Range("E10").Value = "=SUM(E7,E8,E9)"
+    Summary.Range("G10").Value = "=SUM(G7,G8,G9)"
+    
+    
+  Else
+  End If
+
+
+End Sub
+
+Sub File_Transaction_Report()
+
+Dim Savestring As String
+Dim SaveDate As String
+Dim SaveDir As String
+Dim SaveYear As String
+Dim SaveMonth As String
+Dim PostingDate As Range
+Dim Vertex As Worksheet
+Dim MaxDate As Date
+Dim MinDate As Date
+Dim Last_Row As Long
+Dim FileDateCreated
+Dim fs, f, s
+Dim Killbook As String
+Dim ShipToState As Range
+Dim Looper_Value As Range
+
+
+Killbook = ActiveWorkbook.FullName
+
+Dim List As Object
+
+Set fs = CreateObject("Scripting.FileSystemObject")
+Set f = fs.GetFile(ActiveWorkbook.FullName)
+FileDateCreated = f.DateCreated
+
+Set List = CreateObject("Scripting.Dictionary")
+Set Vertex = ActiveSheet
+ 
+ Last_Row = Cells.Find(What:="*", _
+        after:=Range("A1"), _
+        LookAt:=xlPart, _
+        LookIn:=xlFormulas, _
+        SearchOrder:=xlByRows, _
+        SearchDirection:=xlPrevious, _
+        MatchCase:=False).row
+
+
+Set ShipToState = Vertex.Range(Vertex.Cells(1, 1), Vertex.Cells(1, WorksheetFunction.CountA(Vertex.Range("1:1")))).Find("Situs Main Division")
+Set ShipToState = Range(ShipToState, Vertex.Cells(Last_Row, ShipToState.Column))
+
+For Each Looper_Value In ShipToState
+    If Not List.Exists(Looper_Value.Value) Then List.Add Looper_Value.Value, Nothing
+Next Looper_Value
+
+Set PostingDate = Vertex.Range(Vertex.Cells(1, 1), Vertex.Cells(1, WorksheetFunction.CountA(Vertex.Range("1:1")))).Find("Posting Date")
+Set PostingDate = Range(PostingDate, Vertex.Cells(Last_Row, PostingDate.Column))
+
+MaxDate = WorksheetFunction.Max(PostingDate)
+MinDate = WorksheetFunction.Min(PostingDate)
+
+MaxDate = DateSerial(Year((MaxDate)), Month(MaxDate) + 1, 0)
+MinDate = (DateSerial(Year((MinDate)), Month(MinDate), 1))
+
+
+Savestring = "Vertex Transacional Data " & Format(MinDate, "yyyy-mm-dd") & " To " & Format(MaxDate, "yyyy-mm-dd") & " Downloaded " & Format(FileDateCreated, "yyyy-mm-dd") & ".xlsx"
+SaveDir = "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Vertex\Vertex - Data Downloads\" & Savestring
+ActiveWorkbook.SaveAs SaveDir, FileFormat:=xlWorkbookDefault
+Workbooks.Open (SaveDir)
+On Error Resume Next
+Kill (Killbook)
+
+
+End Sub
+
+Sub Update_Config()
+
+Dim OldConfigFile As String
+Dim ArchiveFile As String
+Dim fs, f
+Dim FileDateCreated
+Dim NewConfig As Workbook
+Dim NewConfigDir As String
+
+
+Set NewConfig = ActiveWorkbook
+NewConfigDir = NewConfig.FullName
+OldConfigFile = Dir("C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\Settings\" & "ConfigReport.xl??")
+ArchiveFile = "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\Settings\" & OldConfigFile
+
+Set fs = CreateObject("Scripting.FileSystemObject")
+On Error Resume Next
+Set f = fs.GetFile(ArchiveFile)
+FileDateCreated = f.DateCreated
+Name ArchiveFile As "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\Settings\Archive\ConfigReport Downloaded " & Format(FileDateCreated, "yyyy-mm-dd") & ".xlsx"
+NewConfig.SaveAs "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\Settings\ConfigReport.xlsx", FileFormat:=xlWorkbookDefault
+NewConfig.Close
+Kill NewConfigDir
+
+End Sub
+
+
+
