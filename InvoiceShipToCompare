@@ -1,0 +1,437 @@
+Sub CompareShipToState()
+
+Dim i As Long
+Dim JurTypeDict As Object
+Dim Loop_JurType As Range
+Dim DestinationMain As Range
+Dim SitusMain As Range
+Dim DestName As Long
+Dim SitusName As Long
+Dim LoopCell As Range
+Dim StateString As String
+Dim VertexShipTo As Long
+Dim ShipToMatch As Long
+Dim VertexShipToRange As Range
+Dim SageTrimmedInvoiceNo As Range
+Dim SageTrimmed As Long
+Dim VertexTrimmedInvoiceNo As Range
+Dim VertexTrimmed As Long
+
+
+Set Vertex = ActiveSheet
+Vertex.Name = "Vertex"
+Call E_FN_Import_Sage_Data
+Sage.Name = "Sage"
+
+With Vertex
+    V_Last_Col = .Cells(1, .Columns.Count).End(xlToLeft).Column
+    V_Last_Row = .Cells(.Rows.Count, WorksheetFunction.Match("Transaction ID", .Range("1:1"), 0)).End(xlUp).row
+    
+    DestName = WorksheetFunction.Match("Destination Main Division", .Range("1:1"), 0)
+    SitusName = WorksheetFunction.Match("Situs Main Division", .Range("1:1"), 0)
+    
+    Set DestinationMain = .Range(.Cells(2, DestName), .Cells(V_Last_Row, DestName))
+    Set SitusMain = .Range(.Cells(2, SitusName), .Cells(V_Last_Row, SitusName))
+    
+    .Cells(1, V_Last_Col + 1).Value = "Trimmed Invoice No"
+    
+    For i = 2 To V_Last_Row
+        .Cells(i, V_Last_Col + 1).Value = Right(Left(.Cells(i, .Cells.Find("Document Number").Column), 7), 6)
+    Next i
+    
+    .Columns.AutoFit
+End With
+
+For Each LoopCell In DestinationMain
+StateString = Vertex.Cells(LoopCell.row, SitusName).Value
+LoopCell.Value = StateToAbbrev(StateString)
+
+Next LoopCell
+
+
+
+With Sage
+    S_Last_Row = .Cells(.Rows.Count, WorksheetFunction.Match("InvoiceNo", .Range("1:1"), 0)).End(xlUp).row
+    S_Last_Col = .Cells(1, .Columns.Count).End(xlToLeft).Column
+    .Cells(1, S_Last_Col + 1).Value = "Trimmed Invoice No"
+    
+    For i = 2 To S_Last_Row
+        .Cells(i, S_Last_Col + 1).Value = Right(.Cells(i, 1).Value, 6)
+    Next i
+End With
+
+If User_Interface.Toggle_SalesTax_In_Gross.Value = True Then
+    Vertex.Cells(1, V_Last_Col + 2).Value = "Total Tax Amount"
+    
+    Set JurTypeDict = CreateObject("Scripting.Dictionary")
+    
+    For Each Loop_JurType In Vertex.Range(Vertex.Cells(1, Vertex.Cells.Find("Jurisdiction Type").Column), Vertex.Cells(V_Last_Row, Vertex.Cells.Find("Jurisdiction Type").Column))
+        If Not JurTypeDict.Exists(Loop_JurType.Value) Then
+            JurTypeDict.Add Loop_JurType.Value, Loop_JurType.Value
+        End If
+    Next Loop_JurType
+    
+    For i = 2 To V_Last_Row
+        Vertex.Cells(i, V_Last_Col + 2).Value = Round(WorksheetFunction.SumIfs(Vertex.Range(Vertex.Cells(1, Vertex.Cells.Find("Tax Amount").Column), Vertex.Cells(V_Last_Row, Vertex.Cells.Find("Tax Amount").Column)), Vertex.Range(Vertex.Cells(1, Vertex.Cells.Find("Trimmed Invoice No").Column), Vertex.Cells(V_Last_Row, Vertex.Cells.Find("Trimmed Invoice No").Column)), Vertex.Cells(i, V_Last_Col + 1).Value) / WorksheetFunction.CountIfs(Vertex.Range(Vertex.Cells(1, Vertex.Cells.Find("Jurisdiction Type").Column), Vertex.Cells(V_Last_Row, Vertex.Cells.Find("Jurisdiction Type").Column)), Vertex.Cells(i, Vertex.Cells.Find("Jurisdiction Type").Column), Vertex.Range(Vertex.Cells(1, Vertex.Cells.Find("Trimmed Invoice No").Column), Vertex.Cells(V_Last_Row, Vertex.Cells.Find("Trimmed Invoice No").Column)), Vertex.Cells(i, V_Last_Col + 1)), 2)
+    Next i
+End If
+
+Sage.Range("AQ:AQ").Insert
+Sage.Range("AQ1").Value = "Vertex ShipTo"
+Sage.Range("AQ:AQ").Insert
+Sage.Range("AQ1").Value = "ShipToMatch"
+VertexShipTo = WorksheetFunction.Match("Vertex ShipTo", Sage.Range("1:1"), 0)
+ShipToMatch = WorksheetFunction.Match("ShipToMatch", Sage.Range("1:1"), 0)
+SageTrimmed = WorksheetFunction.Match("Trimmed Invoice No", Sage.Range("1:1"), 0)
+VertexTrimmed = WorksheetFunction.Match("Trimmed Invoice No", Vertex.Range("1:1"), 0)
+
+Set VertexTrimmedInvoiceNo = Vertex.Range(Vertex.Cells(2, VertexTrimmed), Vertex.Cells(V_Last_Row, VertexTrimmed))
+Set VertexShipToRange = Sage.Range(Sage.Cells(2, VertexShipTo), Sage.Cells(S_Last_Row, VertexShipTo))
+
+For Each LoopCell In VertexShipToRange
+On Error Resume Next
+LoopCell.Value = WorksheetFunction.XLookup(Sage.Cells(LoopCell.row, SageTrimmed).Value, VertexTrimmedInvoiceNo, DestinationMain, , 0)
+Sage.Cells(LoopCell.row, LoopCell.Column - 1).Value = "=AR" & LoopCell.row & "=AS" & LoopCell.row
+Next LoopCell
+
+Call ExtractErrors
+
+
+End Sub
+
+
+Function StateToAbbrev(state As String) As String
+    Dim dict As Object
+    Set dict = CreateObject("Scripting.Dictionary")
+    dict.Add "ALABAMA", "AL"
+    dict.Add "ALASKA", "AK"
+    dict.Add "ARIZONA", "AZ"
+    dict.Add "ARKANSAS", "AR"
+    dict.Add "CALIFORNIA", "CA"
+    dict.Add "COLORADO", "CO"
+    dict.Add "CONNECTICUT", "CT"
+    dict.Add "DELAWARE", "DE"
+    dict.Add "FLORIDA", "FL"
+    dict.Add "GEORGIA", "GA"
+    dict.Add "HAWAII", "HI"
+    dict.Add "IDAHO", "ID"
+    dict.Add "ILLINOIS", "IL"
+    dict.Add "INDIANA", "IN"
+    dict.Add "IOWA", "IA"
+    dict.Add "KANSAS", "KS"
+    dict.Add "KENTUCKY", "KY"
+    dict.Add "LOUISIANA", "LA"
+    dict.Add "MAINE", "ME"
+    dict.Add "MARYLAND", "MD"
+    dict.Add "MASSACHUSETTS", "MA"
+    dict.Add "MICHIGAN", "MI"
+    dict.Add "MINNESOTA", "MN"
+    dict.Add "MISSISSIPPI", "MS"
+    dict.Add "MISSOURI", "MO"
+    dict.Add "MONTANA", "MT"
+    dict.Add "NEBRASKA", "NE"
+    dict.Add "NEVADA", "NV"
+    dict.Add "NEW HAMPSHIRE", "NH"
+    dict.Add "NEW JERSEY", "NJ"
+    dict.Add "NEW MEXICO", "NM"
+    dict.Add "NEW YORK", "NY"
+    dict.Add "NORTH CAROLINA", "NC"
+    dict.Add "NORTH DAKOTA", "ND"
+    dict.Add "OHIO", "OH"
+    dict.Add "OKLAHOMA", "OK"
+    dict.Add "OREGON", "OR"
+    dict.Add "PENNSYLVANIA", "PA"
+    dict.Add "RHODE ISLAND", "RI"
+    dict.Add "SOUTH CAROLINA", "SC"
+    dict.Add "SOUTH DAKOTA", "SD"
+    dict.Add "TENNESSEE", "TN"
+    dict.Add "TEXAS", "TX"
+    dict.Add "UTAH", "UT"
+    dict.Add "VERMONT", "VT"
+    dict.Add "VIRGINIA", "VA"
+    dict.Add "WASHINGTON", "WA"
+    dict.Add "WEST VIRGINIA", "WV"
+    dict.Add "WISCONSIN", "WI"
+    dict.Add "WYOMING", "WY"
+    dict.Add "ONTARIO", "CAN"
+    dict.Add "QUEBEC", "CAN"
+    dict.Add "BRITISH COLUMBIA", "CAN"
+    dict.Add "DISTRICT OF COLUMBIA", "DC"
+    dict.Add "PUERTO RICO", "PR"
+    
+    state = UCase(state)
+    If dict.Exists(state) Then
+        StateToAbbrev = dict(state)
+    Else
+        StateToAbbrev = "Invalid state name."
+    End If
+End Function
+
+
+
+
+Public Sub E_FN_Import_Sage_Data()
+
+    ' Build the connection string and SQL query
+    BuildQuery_SC
+
+    ' Execute the query and load data into the worksheet
+    LoadData_StateCheck
+
+End Sub
+Private Sub LoadData()
+    Dim Conn As New ADODB.Connection
+    Dim Recset As ADODB.RecordSet
+    Dim i As Long
+
+    Conn.Open ConString
+    Set Recset = New ADODB.RecordSet
+    Recset.Open SQL, Conn
+    Sage.Cells(2, 1).CopyFromRecordset Recset
+
+    With Recset
+        For i = 1 To .Fields.Count
+            Sage.Cells(1, i).Value = Recset.Fields(i - 1).Name
+        Next i
+    End With
+    Recset.Close
+    Conn.Close
+    Sage.Columns.AutoFit
+
+    FormatColumns
+End Sub
+Private Sub BuildQuandaQuery_SC()
+    ' Your code to build the Quanda query goes here
+   
+ConString = "DSN=Quanda;Description=Daily Replication of Sage data in SQL;Trusted_Connection=Yes;APP=Microsoft Office;DATABASE=Quanda;ApplicationIntent=READONLY;"
+ReconState = InputBox("What State (ALL) for all.")
+StartDate = Format(InputBox("What Start Date?"), "yyyy-mm-dd")
+EndDate = Format(InputBox("What End Date?"), "yyyy-mm-dd")
+
+
+If InStr(ReconState, "ALL") > 0 Then
+    SQL = "SELECT * FROM AR_InvoiceHistoryHeader WHERE (AR_InvoiceHistoryHeader.InvoiceDate BETWEEN '" & StartDate & "' AND '" & EndDate & "') AND (AR_InvoiceHistoryHeader.ShipToCountryCode ='US' OR AR_InvoiceHistoryHeader.ShipToCountryCode ='USA')"
+Else
+
+If ReconState = "FL" Or ReconState = "Fl" Then
+SQL = "SELECT * FROM AR_InvoiceHistoryHeader WHERE (AR_InvoiceHistoryHeader.InvoiceDate BETWEEN '" & StartDate & "' AND '" & EndDate & "') AND (AR_InvoiceHistoryHeader.ShipToCountryCode ='US' OR AR_InvoiceHistoryHeader.ShipToCountryCode ='USA') AND AR_InvoiceHistoryHeader.ShipToState ='" & ReconState & "' AND AR_InvoiceHistoryHeader.TaxSchedule<>'MKTPLCFAC'"
+
+Else
+SQL = "SELECT * FROM AR_InvoiceHistoryHeader WHERE (AR_InvoiceHistoryHeader.InvoiceDate BETWEEN '" & StartDate & "' AND '" & EndDate & "') AND (AR_InvoiceHistoryHeader.ShipToCountryCode ='US' OR AR_InvoiceHistoryHeader.ShipToCountryCode ='USA') AND AR_InvoiceHistoryHeader.ShipToState ='" & ReconState & "'"
+End If
+End If
+
+    ' ...
+End Sub
+Private Sub BuildSageQuery_SC()
+    ' Your code to build the Sage query goes here
+    ConString = "DSN=SOTAMAS90; UID=cba; PWD=Huya7; Directory=\\fot00erp\Sage100_2020\MAS90; Prefix=\\fot00erp\Sage100_2020\MAS90\SY\, \\fot00erp\Sage100_2020\MAS90\==\; ViewDLL=\\fot00erp\Sage100_2020\MAS90\HOME; Company=fot; LogFile=\PVXODBC.LOG; CacheSize=4; DirtyReads=1; BurstMode=1; StripTrailingSpaces=1; SERVER=NotTheServer"
+    ReconState = InputBox("What State (ALL) for all.")
+    StartDate = Format(InputBox("What Start Date?"), "yyyy-mm-dd")
+    EndDate = Format(InputBox("What End Date?"), "yyyy-mm-dd")
+
+
+If InStr(ReconState, "ALL") > 0 Then
+    SQL = "SELECT * FROM AR_InvoiceHistoryHeader WHERE (AR_InvoiceHistoryHeader.InvoiceDate >= {d '" & StartDate & "'}) AND (AR_InvoiceHistoryHeader.InvoiceDate <= {d '" & EndDate & "'}) AND (AR_InvoiceHistoryHeader.ShipToCountryCode ='US' OR AR_InvoiceHistoryHeader.ShipToCountryCode ='USA')"
+Else
+
+If ReconState = "FL" Or ReconState = "Fl" Then
+SQL = "SELECT * FROM AR_InvoiceHistoryHeader WHERE (AR_InvoiceHistoryHeader.InvoiceDate >= {d '" & StartDate & "'}) AND (AR_InvoiceHistoryHeader.InvoiceDate <= {d '" & EndDate & "'}) AND (AR_InvoiceHistoryHeader.ShipToCountryCode ='US' OR AR_InvoiceHistoryHeader.ShipToCountryCode ='USA') AND AR_InvoiceHistoryHeader.ShipToState ='" & ReconState & "' AND AR_InvoiceHistoryHeader.TaxSchedule<>'MKTPLCFAC'"
+
+Else
+SQL = "SELECT * FROM AR_InvoiceHistoryHeader WHERE (AR_InvoiceHistoryHeader.InvoiceDate >= {d '" & StartDate & "'}) AND (AR_InvoiceHistoryHeader.InvoiceDate <= {d '" & EndDate & "'}) AND (AR_InvoiceHistoryHeader.ShipToCountryCode ='US' OR AR_InvoiceHistoryHeader.ShipToCountryCode ='USA') AND AR_InvoiceHistoryHeader.ShipToState ='" & ReconState & "'"
+End If
+End If
+    ' ...
+End Sub
+
+Private Sub BuildQuery_SC()
+
+Dim UserQuerry As String
+
+UserQuerry = MsgBox("Use Quanda data source?", vbYesNo)
+
+    If UserQuerry = vbNo Then
+        BuildSageQuery_SC
+    ElseIf UserQuerry = vbYes Then
+        BuildQuandaQuery_SC
+    End If
+End Sub
+
+Private Sub LoadData_StateCheck()
+    Dim Conn As New ADODB.Connection
+    Dim Recset As ADODB.RecordSet
+    Dim i As Long
+    
+    Set Sage = Sheets.Add
+    
+    Conn.Open ConString
+    Set Recset = New ADODB.RecordSet
+    Recset.Open SQL, Conn
+    Sage.Cells(2, 1).CopyFromRecordset Recset
+
+    With Recset
+        For i = 1 To .Fields.Count
+            Sage.Cells(1, i).Value = Recset.Fields(i - 1).Name
+        Next i
+    End With
+    Recset.Close
+    Conn.Close
+    Sage.Columns.AutoFit
+
+    FormatColumns_SC
+End Sub
+Private Sub FormatColumns_SC()
+    Dim i As Long
+    For i = 1 To WorksheetFunction.CountA(Sage.Range("1:1"))
+        If InStr(Sage.Cells(1, i).Value, "date") Or InStr(Sage.Cells(1, i).Value, "Date") Then
+            Sage.Cells(1, i).EntireColumn.NumberFormat = "mm/dd/yyyy"
+        End If
+    Next i
+End Sub
+
+Private Function getErrorRange(ByVal errorRange As Range, ByVal row As Range) As Range
+    'Check if the error range is already set
+    If errorRange Is Nothing Then
+        Set errorRange = row
+    Else
+        Set errorRange = Union(errorRange, row)
+    End If
+    'Return the updated error range
+    Set getErrorRange = errorRange
+End Function
+
+
+Sub ExtractErrors()
+    Dim SageSheet As Worksheet
+    Dim ErrorSheet As Worksheet
+    Dim lastRow As Long
+    Dim i As Long
+    Dim InvoiceNo As String
+    Dim ShipToState As String
+    Dim TaxSchedule As String
+    Dim ShipToStateCol As Long
+    Dim TaxScheduleCol As Long
+    Dim InvoiceCol As Long
+    Dim ShipToMatchCol As Long
+    Dim errorRange As Range
+    Dim rowRange As Range
+    Dim SalespersonNo As String
+    Dim SalespersonNoCol As Long
+    
+    
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+    
+    'Set references to the Sage and Error sheets
+    Set SageSheet = ActiveWorkbook.Worksheets("Sage")
+    
+    With SageSheet
+        TaxScheduleCol = .Rows(1).Find("TaxSchedule", LookIn:=xlValues, LookAt:=xlWhole).Column
+        ShipToStateCol = .Rows(1).Find("ShipToState", LookIn:=xlValues, LookAt:=xlWhole).Column
+        InvoiceCol = .Rows(1).Find("InvoiceNo", LookIn:=xlValues, LookAt:=xlWhole).Column
+        ShipToMatchCol = .Rows(1).Find("ShipToMatch", LookIn:=xlValues, LookAt:=xlWhole).Column
+        SalespersonNoCol = Rows(1).Find("SalespersonNo", LookIn:=xlValues, LookAt:=xlWhole).Column
+    End With
+    
+    Set ErrorSheet = ActiveWorkbook.Sheets.Add
+    ErrorSheet.Name = "Error Report"
+    
+    'Get the last row of data in the Sage sheet
+    lastRow = SageSheet.Cells(SageSheet.Rows.Count, 1).End(xlUp).row
+    
+    'Copy column headers to error sheet
+    SageSheet.Rows(1).Copy Destination:=ErrorSheet.Rows(1)
+    
+    'Loop through each row in the Sage sheet and check the conditions
+    For i = 2 To lastRow 'assuming row 1 contains headers
+    InvoiceNo = SageSheet.Cells(i, InvoiceCol).Value
+    ShipToState = SageSheet.Cells(i, ShipToStateCol).Value
+    TaxSchedule = SageSheet.Cells(i, TaxScheduleCol).Value
+    SalespersonNo = SageSheet.Cells(i, SalespersonNoCol).Value
+    
+    'Check if invoice number starts with a letter
+    If Not IsNumeric(Left(InvoiceNo, 1)) Then
+        'Skip this row
+        GoTo NextRow
+    End If
+    
+    'Check if SalespersonNo is "COOP"
+    If SalespersonNo = "COOP" Then
+        'Skip this row
+        GoTo NextRow
+    End If
+    
+    'Check if ShipToMatch is false
+    If SageSheet.Cells(i, SageSheet.Cells.Find("ShipToMatch").Column).Value = False Then
+        'Check if ShipToState is FL and tax schedule is MKTPLCFAC
+        If ShipToState = "FL" And TaxSchedule = "MKTPLCFAC" Then
+            'Skip this row
+            GoTo NextRow
+        ElseIf ShipToState <> "FL" And TaxSchedule = "MKTPLCFAC" Then
+            'Copy the row to the Error sheet
+            Set errorRange = getErrorRange(errorRange, SageSheet.Rows(i))
+        ElseIf ShipToState = "FL" And TaxSchedule <> "MKTPLCFAC" Then
+            'Copy the row to the Error sheet
+            Set errorRange = getErrorRange(errorRange, SageSheet.Rows(i))
+        Else
+            'Check if ShipToState is not FL and ShipToMatch is false
+            If ShipToState <> "FL" Then
+                'Copy the row to the Error sheet
+                Set errorRange = getErrorRange(errorRange, SageSheet.Rows(i))
+            End If
+        End If
+    End If
+    
+NextRow:
+Next i
+
+    'Check if any errors were found
+    If Not errorRange Is Nothing Then
+        'Copy the error range to the Error sheet and include the headers from the Sage sheet
+errorRange.Copy Destination:=ErrorSheet.Range("A2")
+
+'Copy the headers from the Sage sheet to the Error sheet
+    SageSheet.Rows(1).Copy Destination:=ErrorSheet.Range("A1")
+    
+    'Auto-fit columns in the Error sheet
+    ErrorSheet.Columns.AutoFit
+Else
+    'No errors were found
+    MsgBox "No errors were found.", vbInformation, "Extract Errors"
+End If
+
+Application.ScreenUpdating = True
+Application.Calculation = xlCalculationAutomatic
+
+Call DeleteUnusedColumns
+
+End Sub
+
+Sub DeleteUnusedColumns()
+
+    Dim ws As Worksheet
+    Dim lastCol As Long
+    Dim i As Long
+    Dim header As Variant
+    Dim keepHeader As Boolean
+    
+    Set ws = ActiveSheet
+    
+    lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+    
+    For i = lastCol To 1 Step -1
+        keepHeader = False
+        For Each header In Array("InvoiceNo", "InvoiceDate", "TransactionDate", "CustomerNo", "TaxSchedule", "SalespersonNo", "SalesOrderNo", "ShipToName", "ShipToAddress1", "ShipToAddress2", "ShipToCity", "ShipToState", "ShipToMatch", "Vertex ShipTo", "ShipToZipCode", "ShipToCountryCode", "ShipDate", "TaxableSalesAmt", "NonTaxableSalesAmt", "FreightAmt", "SalesTaxAmt", "CostOfSalesAmt", "UDF_AMAZON_ID", "UDF_ORDER_MANAGER", "Trimmed Invoice No")
+            If ws.Cells(1, i).Value = header Then
+                keepHeader = True
+                Exit For
+            End If
+        Next header
+        If Not keepHeader Then
+            ws.Columns(i).Delete
+        End If
+    Next i
+    
+End Sub
+
