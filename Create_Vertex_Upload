@@ -1,0 +1,75 @@
+Sub Create_Vertex_Upload()
+
+Dim Sage_Data As Worksheet
+Dim Vertex_Upload As Worksheet
+Dim Vertex_Data As Worksheet
+
+Dim Counter As Long
+
+
+Set Vertex_Upload = ActiveWorkbook.Sheets.Add
+Vertex_Upload.Name = "DefaultUpload"
+
+Vertex_Upload.Range("A1").Value = "Results"
+Vertex_Upload.Range("B1").Value = "Document Number"
+Vertex_Upload.Range("C1").Value = "Document Date"
+Vertex_Upload.Range("D1").Value = "Posting Date"
+Vertex_Upload.Range("E1").Value = "Company Code"
+Vertex_Upload.Range("F1").Value = "Phys Origin City"
+Vertex_Upload.Range("G1").Value = "Phys Origin State"
+Vertex_Upload.Range("H1").Value = "Phys Origin Zip"
+Vertex_Upload.Range("I1").Value = "Destination Street Address"
+Vertex_Upload.Range("J1").Value = "Phys Origin Country"
+Vertex_Upload.Range("K1").Value = "Customer Code"
+Vertex_Upload.Range("L1").Value = "Customer Class Code"
+Vertex_Upload.Range("M1").Value = "Product Class Code"
+Vertex_Upload.Range("N1").Value = "Destination State"
+Vertex_Upload.Range("O1").Value = "Destination Zip"
+Vertex_Upload.Range("P1").Value = "Destination Country"
+Vertex_Upload.Range("Q1").Value = "Extended Price"
+Vertex_Upload.Range("R1").Value = "Flexcode04"
+Vertex_Upload.Range("S1").Value = "Flexcode05"
+Vertex_Upload.Range("T1").Value = "Destination City"
+Vertex_Upload.Columns.AutoFit
+
+
+Set Sage_Data = ActiveWorkbook.Sheets("Sage AR Data")
+Set Vertex_Data = ActiveWorkbook.Sheets("Vertex")
+
+For i = 2 To WorksheetFunction.CountA(Sage_Data.Range("J:J"))
+If Sage_Data.Range("J" & i).Value = "DEFAULT" Then
+Counter = WorksheetFunction.CountA(Vertex_Upload.Range("B:B")) + 1
+
+
+Vertex_Upload.Range("A" & Counter).Value = ""
+Vertex_Upload.Range("B" & Counter).Value = Sage_Data.Range("A" & i).Value & "-IN"
+Vertex_Upload.Range("C" & Counter).Value = Sage_Data.Range("E" & i).Value
+Vertex_Upload.Range("D" & Counter).Value = Sage_Data.Range("E" & i).Value
+Vertex_Upload.Range("E" & Counter).Value = "FOT"
+Vertex_Upload.Range("F" & Counter).Value = "WOBURN"
+Vertex_Upload.Range("G" & Counter).Value = "MA"
+Vertex_Upload.Range("H" & Counter).Value = "01801-1069"
+Vertex_Upload.Range("I" & Counter).Value = Sage_Data.Range("AM" & i).Value
+Vertex_Upload.Range("J" & Counter).Value = "USA"
+Vertex_Upload.Range("K" & Counter).Value = ""
+Vertex_Upload.Range("L" & Counter).Value = ""
+Vertex_Upload.Range("M" & Counter).Value = ""
+Vertex_Upload.Range("N" & Counter).Value = Sage_Data.Range("AQ" & i).Value
+Vertex_Upload.Range("O" & Counter).Value = WorksheetFunction.XLookup(Sage_Data.Range("EH" & i).Value, Vertex_Data.Range("EX:EX"), Vertex_Data.Range("AE:AE"), "", 0)
+Vertex_Upload.Range("P" & Counter).Value = "USA"
+Vertex_Upload.Range("Q" & Counter).Value = Sage_Data.Range("BV" & i).Value * -1
+Vertex_Upload.Range("R" & Counter).Value = ""
+Vertex_Upload.Range("S" & Counter).Value = ""
+Vertex_Upload.Range("T" & Counter).Value = Sage_Data.Range("AP" & i).Value
+End If
+Next i
+
+Vertex_Upload.Range("A:T").RemoveDuplicates Columns:=Array(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20), header:=xlYes
+
+For i = 2 To WorksheetFunction.CountA(Vertex_Upload.Range("B:B"))
+Vertex_Upload.Range("B" & Counter).Value = Vertex_Upload.Range("B" & i).Value
+
+
+Next i
+
+End Sub
