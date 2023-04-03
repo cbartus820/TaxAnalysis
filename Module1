@@ -1,0 +1,45 @@
+
+Sub Data_Querry()
+
+
+GL_Acct_Query.Show
+
+
+End Sub
+Sub Sales_Query()
+
+
+SubLedger_Inquiry.Show
+
+
+End Sub
+Sub File_Directory_Open()
+
+Dim FileStringLen As Integer
+Dim String_1 As String
+Dim String_2 As String
+Dim FileDir As String
+Dim Last_Occurance As Long
+Dim Test_Var As String
+Dim OpenDir As String
+
+FileStringLen = Len(ActiveWorkbook.FullName)
+String_1 = ActiveWorkbook.FullName
+String_2 = "\"
+
+For i = FileStringLen To 1 Step -1
+Test_Var = Mid(String_1, i - 1, 1)
+If Mid(String_1, i - 1, 1) = String_2 Then
+
+Last_Occurance = i
+
+Exit For
+Else
+End If
+Next i
+
+OpenDir = Left(ActiveWorkbook.FullName, Last_Occurance - 1)
+Shell "C:\WINDOWS\explorer.exe """ & OpenDir & "", vbNormalFocus
+
+End Sub
+
