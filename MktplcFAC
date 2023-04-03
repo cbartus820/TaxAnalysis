@@ -1,0 +1,210 @@
+
+Sub Mktplc_Upload()
+
+
+Dim ConString As String
+Dim SQL As String
+Dim RawData As Worksheet
+Dim Upload As Worksheet
+Dim Counter As Long
+
+Dim Conn As New ADODB.Connection
+Dim Recset As New ADODB.RecordSet
+
+
+'------------ Sage Data Import ----------------
+
+Sheets.Add
+Set RawData = ActiveSheet
+RawData.Name = "Raw Data"
+Sheets.Add
+Set Upload = ActiveSheet
+Upload.Name = "Upload"
+
+StartDate = Format(InputBox("Starting Date" & """MM-DD-YYYY""" & " Format"), "YYYY-MM-DD")
+EndDate = Format(InputBox("Ending Date" & """MM-DD-YYYY""" & " Format"), "YYYY-MM-DD")
+
+ConString = "DSN=SOTAMAS90; UID=cba; PWD=Huya7; Directory=\\fot00erp\Sage100_2020\MAS90; Prefix=\\fot00erp\Sage100_2020\MAS90\SY\, \\fot00erp\Sage100_2020\MAS90\==\; ViewDLL=\\fot00erp\Sage100_2020\MAS90\HOME; Company=fot; LogFile=\PVXODBC.LOG; CacheSize=4; DirtyReads=1; BurstMode=1; StripTrailingSpaces=1; SERVER=NotTheServer"
+SQL = "SELECT InvoiceNo,InvoiceDate,CustomerNo,TaxSchedule,ApplyToInvoiceNo,Comment,ShiptoAddress1,ShipToCity,ShipToState,ShipToZipCode,TaxableSalesAmt,NonTaxableSalesAmt,FreightAmt,SalesTaxAmt,CostOfSalesAmt,UDF_MKTPLC_SALES_TAX FROM AR_InvoiceHistoryHeader WHERE (AR_InvoiceHistoryHeader.InvoiceDate >= {d '" & StartDate & "'}) AND (AR_InvoiceHistoryHeader.InvoiceDate <= {d '" & EndDate & "'}) AND (AR_InvoiceHistoryHeader.ShipToCountryCode ='US' OR AR_InvoiceHistoryHeader.ShipToCountryCode ='USA') AND AR_InvoiceHistoryHeader.TaxSchedule ='MKTPLCFAC' AND AR_InvoiceHistoryHeader.ShipToState <> 'FL'"
+
+    
+Conn.Open ConString
+Set Recset = New ADODB.RecordSet
+    Recset.Open SQL, Conn
+    RawData.Cells(2, 1).CopyFromRecordset Recset
+         With Recset
+        For i = 1 To .Fields.Count
+        RawData.Cells(1, i).Value = Recset.Fields(i - 1).Name
+        Next i
+    End With
+    Recset.Close
+Conn.Close
+
+For i = 2 To WorksheetFunction.CountA(RawData.Range("B:B"))
+RawData.Cells(i, 2).Value = CDate(DateValue(RawData.Cells(i, 2).Value))
+Next i
+
+Upload.Range("A1").Value = "Results"
+Upload.Range("B1").Value = "Document Number"
+Upload.Range("C1").Value = "Document Date"
+Upload.Range("D1").Value = "Posting Date"
+Upload.Range("E1").Value = "Company Code"
+Upload.Range("F1").Value = "Phys Origin City"
+Upload.Range("G1").Value = "Phys Origin State"
+Upload.Range("H1").Value = "Phys Origin Zip"
+Upload.Range("I1").Value = "Destination Street Address"
+Upload.Range("J1").Value = "Phys Origin Country"
+Upload.Range("K1").Value = "Customer Class Code"
+Upload.Range("L1").Value = "Product Class Code"
+Upload.Range("M1").Value = "Destination State"
+Upload.Range("N1").Value = "Destination Zip"
+Upload.Range("O1").Value = "Destination Country"
+Upload.Range("P1").Value = "Extended Price"
+Upload.Range("Q1").Value = "Flexcode04"
+Upload.Range("R1").Value = "Flexcode05"
+Upload.Range("S1").Value = "Destination City"
+
+For i = 2 To WorksheetFunction.CountA(RawData.Range("B:B"))
+    
+    Counter = WorksheetFunction.CountA(Upload.Range("B:B")) + 1
+    
+    If RawData.Range("H" & i).Value <> "CT" Then
+        ' Documnet Number
+        Upload.Range("B" & Counter).Value = RawData.Range("A" & i).Value & "-IN-MKTPLCFAC"
+        'Document Date
+        Upload.Range("C" & Counter).Value = RawData.Range("B" & i).Value
+        'Posting Date
+        Upload.Range("D" & Counter).Value = RawData.Range("B" & i).Value
+        'Company Code
+        Upload.Range("E" & Counter).Value = "FOT"
+        'Physical Origin City
+        Upload.Range("F" & Counter).Value = "WOBURN"
+        'Physical Origin State
+        Upload.Range("G" & Counter).Value = "MA"
+        'Physical Origin Zip Code
+        Upload.Range("H" & Counter).Value = "'01801-1069"
+        'Physical Origin ShiptoAddress
+        Upload.Range("I" & Counter).Value = RawData.Range("G" & i).Value
+        'Physical Origin Country Code
+        Upload.Range("J" & Counter).Value = "USA"
+        'Customer Class Code
+        Upload.Range("K" & Counter).Value = ""
+        'Product Class Code
+        Upload.Range("L" & Counter).Value = RawData.Range("C" & i).Value & "_exempt"
+        'Destination State
+        Upload.Range("M" & Counter).Value = RawData.Range("I" & i).Value
+        'Destination Zip
+        Upload.Range("N" & Counter).Value = "'" & RawData.Range("J" & i).Value
+        'Destination Country
+        Upload.Range("O" & Counter).Value = "USA"
+        'Extended Price
+        Upload.Range("P" & Counter).Value = RawData.Range("L" & i).Value
+        'FlexCode04
+        Upload.Range("Q" & Counter).Value = ""
+       'FlexCode05
+        Upload.Range("R" & Counter).Value = "PRODUCT"
+        'ShipToCity
+        Upload.Range("S" & Counter).Value = RawData.Range("H" & i).Value
+     Else
+        If RawData.Range("H" & i).Value = "CT" Then
+        'Document Number
+        Upload.Range("B" & Counter).Value = RawData.Range("A" & i).Value & "-IN-MKTPLCFAC"
+        'Document Date
+        Upload.Range("C" & Counter).Value = RawData.Range("B" & i).Value
+        'Posting Date
+        Upload.Range("D" & Counter).Value = RawData.Range("B" & i).Value
+        'Company Code
+        Upload.Range("E" & Counter).Value = "FOT"
+        'Physical Origin City
+        Upload.Range("F" & Counter).Value = "WOBURN"
+        'Physical Origin State
+        Upload.Range("G" & Counter).Value = "MA"
+        'Physical Origin Zip Code
+        Upload.Range("H" & Counter).Value = "'01801-1069"
+        'Physical Origin ShipToAddress
+        Upload.Range("I" & Counter).Value = RawData.Range("G" & i).Value
+        'Physical Origin Country Code
+        Upload.Range("J" & Counter).Value = "USA"
+        'Customer Class Code
+        Upload.Range("K" & Counter).Value = "MKTPLCFAC_CUST"
+        'Product Class Code
+        Upload.Range("L" & Counter).Value = ""
+        'Destination State
+        Upload.Range("M" & Counter).Value = RawData.Range("I" & i).Value
+        'Destination Zip
+        Upload.Range("N" & Counter).Value = "'" & RawData.Range("J" & i).Value
+        'Destination Country
+        Upload.Range("O" & Counter).Value = "US"
+        'Extended Price
+        Upload.Range("P" & Counter).Value = RawData.Range("L" & i).Value
+        'Flexcode 04
+        Upload.Range("Q" & Counter).Value = RawData.Range("C" & i).Value & "_exempt"
+        'Flexcode 05
+        Upload.Range("R" & Counter).Value = "PRODUCT"
+        'ShipToCity
+        Upload.Range("S" & Counter).Value = RawData.Range("H" & i).Value
+        
+        
+        End If
+        End If
+Next i
+
+For i = 2 To WorksheetFunction.CountA(RawData.Range("B:B"))
+    Counter = WorksheetFunction.CountA(Upload.Range("B:B")) + 1
+    
+    If RawData.Range("H" & i).Value <> "CT" And RawData.Range("L" & i).Value <> 0 Then
+        Upload.Range("B" & Counter).Value = RawData.Range("A" & i).Value & "-IN-MKTPLCFAC"
+        Upload.Range("C" & Counter).Value = RawData.Range("B" & i).Value
+        Upload.Range("D" & Counter).Value = RawData.Range("B" & i).Value
+        Upload.Range("E" & Counter).Value = "FOT"
+        Upload.Range("F" & Counter).Value = "WOBURN"
+        Upload.Range("G" & Counter).Value = "MA"
+        Upload.Range("H" & Counter).Value = "'01801-1069"
+        Upload.Range("I" & Counter).Value = RawData.Range("G" & i).Value
+        Upload.Range("J" & Counter).Value = "USA"
+        Upload.Range("K" & Counter).Value = ""
+        Upload.Range("L" & Counter).Value = RawData.Range("C" & i).Value & "_exempt"
+        Upload.Range("M" & Counter).Value = RawData.Range("I" & i).Value
+        Upload.Range("N" & Counter).Value = "'" & RawData.Range("J" & i).Value
+        Upload.Range("O" & Counter).Value = "US"
+        Upload.Range("P" & Counter).Value = RawData.Range("M" & i).Value
+        Upload.Range("Q" & Counter).Value = ""
+        Upload.Range("R" & Counter).Value = "FREIGHT"
+        Upload.Range("S" & Counter).Value = RawData.Range("H" & i).Value
+     Else
+        If RawData.Range("H" & i).Value = "CT" And RawData.Range("L" & i).Value <> 0 Then
+        Upload.Range("B" & Counter).Value = RawData.Range("A" & i).Value & "-IN-MKTPLCFAC"
+        Upload.Range("C" & Counter).Value = RawData.Range("B" & i).Value
+        Upload.Range("D" & Counter).Value = RawData.Range("B" & i).Value
+        Upload.Range("E" & Counter).Value = "FOT"
+        Upload.Range("F" & Counter).Value = "WOBURN"
+        Upload.Range("G" & Counter).Value = "MA"
+        Upload.Range("H" & Counter).Value = "'01801-1069"
+        Upload.Range("I" & Counter).Value = "'01801-1069"
+        Upload.Range("J" & Counter).Value = "USA"
+        Upload.Range("K" & Counter).Value = "MKTPLCFAC_CUST"
+        Upload.Range("L" & Counter).Value = ""
+        Upload.Range("M" & Counter).Value = RawData.Range("I" & i).Value
+        Upload.Range("N" & Counter).Value = "'" & RawData.Range("J" & i).Value
+        Upload.Range("O" & Counter).Value = "US"
+        Upload.Range("P" & Counter).Value = RawData.Range("M" & i).Value
+        Upload.Range("Q" & Counter).Value = RawData.Range("C" & i).Value & "_exempt"
+        Upload.Range("R" & Counter).Value = "FREIGHT"
+        Upload.Range("S" & Counter).Value = RawData.Range("H" & i).Value
+        
+        End If
+        End If
+Next i
+
+Upload.Columns.AutoFit
+
+Dim SaveDir As String
+Dim Savename As String
+
+SaverDir = "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Facilitator Uploads\"
+Savename = Format(DateAdd("d", -1, Date), "YYYY-MM-DD") & " MKTPLCFAC UPLOAD"
+
+ActiveWorkbook.SaveAs SaveDir & Savename & ".csv", xlCSV
+ActiveWorkbook.SaveAs SaveDir & Savename & ".xlsx", xlWorkbookDefault
+
+End Sub
