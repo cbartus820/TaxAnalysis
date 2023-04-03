@@ -1,0 +1,436 @@
+Sub Activate_GL_Recon()
+
+Tax_GL_Recon.Show
+
+
+End Sub
+
+Sub GL_Reconciliation()
+
+' Variables to Hold SQL Querry Date Information
+Dim GL_StartDate As String
+Dim GL_EndDate As String
+
+' Objects to connect to ERP System Back End
+Dim ODBC_Connection_String As String
+Dim ODBC_Connection As ADODB.Connection
+Dim ODBC_RecordSet As ADODB.RecordSet
+Dim ODBC_RecordSet2 As ADODB.RecordSet
+
+'Excel Worksheets to Hold Data from SQL Querries
+Dim GL_Datasheet As Worksheet
+Dim AR_InvoiceHeader As Worksheet
+
+'Excel Workbook Object to reference in Functions/Operations
+Dim GL_Reconbook As Workbook
+
+
+'Variables to Define the dimensions of the data sets
+Dim Sage_GL_LastRow As Double
+Dim Sage_GL_LastCol As Double
+
+Dim Sage_AR_LastRow As Double
+Dim Sage_AR_LastCol As Double
+
+'Objects to hold range references for comparison between sub ledger and general ledger
+
+Dim Sage_GL_PostingDate As Range
+Dim Sage_GL_DebitAmt As Range
+Dim Sage_GL_CreditAmt As Range
+Dim Sage_GL_RegisterNo As Range
+Dim Sage_GL_DocumentNo As Range
+Dim Sage_GL_PostingComment As Range
+Dim Sage_GL_CustNo As Range
+Dim Sage_GL_SourceJournal As Range
+Dim Sage_AR_InvoiceNo As Range
+Dim Sage_AR_CustNo As Range
+Dim Sage_AR_TransactionDate As Range
+Dim Sage_AR_Tax As Range
+Dim Sage_AR_RegisterNo As Range
+Dim Sage_AR_ShipToState As Range
+
+'Objects to store SQL Querry information
+Dim GL_Posting_SQL As String
+Dim AR_HistoryHeader_SQL As String
+
+
+'Define the GL_Recon Workbook as the Open Blank Workbook
+Set GL_Reconbook = ActiveWorkbook
+
+'Add a Worksheet to Store data downloaded from the ERP General Ledger Table
+Set GL_Datasheet = GL_Reconbook.Sheets.Add
+
+'Rename the Worksheet to the GL Account Number and dynamically with the date of the Period being reconciled:
+GL_Datasheet.Name = "GL 24300-00 " & Format(Tax_GL_Recon.StartDate.Value, "YYYY-MM")
+
+'Add a Worksheet to Store data downloaded from the ERP AR Invoice History Table (Home of State Specific Information)
+Set AR_InvoiceHeader = GL_Reconbook.Sheets.Add
+
+'Rename the Worksheet to the GL Account Number an dynamically with the date of the Period being reconciled:
+AR_InvoiceHeader.Name = "AR History " & Format(Tax_GL_Recon.StartDate.Value, "yyyy-mm")
+
+'Dynammically define GL Data SQL Querry for GL Data based on information inputed into GL_Recon userform upon code execution
+
+GL_Posting_SQL = "SELECT * From GL_DetailPosting WHERE Accountkey = '243000000' AND Postingdate >= {d'" & Format(Tax_GL_Recon.StartDate.Value, "yyyy-mm-dd") & "'} AND Postingdate <= {d'" & Format(Tax_GL_Recon.EndDate.Value, "yyyy-mm-dd") & "'}"
+
+'Dynammically define Accounts Recieveable Data SQL Querry for AR Data based on information inputed into GL_Recon userform upon code execution
+
+AR_HistoryHeader_SQL = "SELECT * FROM AR_InvoiceHistoryHeader Where transactiondate >= {d'" & Format(Tax_GL_Recon.StartDate.Value, "yyyy-mm-dd") & "'} AND Transactiondate <={d'" & Format(Tax_GL_Recon.EndDate.Value, "yyyy-mm-dd") & "'} AND InvoiceType <> 'XD'"
+
+' Define the type of database connection used in the ODBC data extraction functions from the ERP
+
+ODBC_Connection_String = "DRIVER={MAS 90 4.0 ODBC Driver};Description=MAS 90 4.0 ODBC Driver;Directory=\\fot00erp\Sage100_2020\MAS90;Prefix=\\fot00erp\Sage100_2020\MAS90\SY\, \\fot00erp\Sage100_2020\MAS90\==\;ViewDLL=\\fot00erp\Sage100_2020\MAS90\HOME;LogFile=\PVXODBC.LOG;CacheSize=4;DirtyReads=1;BurstMode=1;StripTrailingSpaces=1;SERVER=NotTheServer"
+
+' Open a new database connection based on the defined database connection string
+Set ODBC_Connection = New ADODB.Connection
+ODBC_Connection.Open ODBC_Connection_String
+
+' Open a new Record Set querrying the database with the GL Data SQL Querry
+Set ODBC_RecordSet = New ADODB.RecordSet
+ODBC_RecordSet.Open GL_Posting_SQL, ODBC_Connection
+
+'Populate the GL Data Worksheet with the data querried from the system:
+With GL_Datasheet.QueryTables.Add( _
+Connection:=ODBC_RecordSet, _
+Destination:=GL_Datasheet.Range("A1"))
+
+    .Name = "GL Details " & Format(Tax_GL_Recon.StartDate.Value, "yyyy-mm")
+    .FieldNames = True
+    .RowNumbers = False
+    .FillAdjacentFormulas = False
+    .PreserveFormatting = True
+    .RefreshOnFileOpen = False
+    .BackgroundQuery = True
+    .RefreshStyle = xlInsertDeleteCells
+    .SavePassword = True
+    .SaveData = True
+    .AdjustColumnWidth = True
+    .RefreshPeriod = 0
+    .PreserveColumnInfo = True
+    .Refresh BackgroundQuery:=False
+    
+End With
+ODBC_RecordSet.Close
+
+'Open a new Record Set querrying the database with the AR Data SQL Querry
+
+Set ODBC_RecordSet2 = New ADODB.RecordSet
+ODBC_RecordSet2.Open AR_HistoryHeader_SQL, ODBC_Connection
+
+'Populate the AR History worksheet with the data querried from the system:
+
+With AR_InvoiceHeader.QueryTables.Add( _
+Connection:=ODBC_RecordSet2, _
+Destination:=AR_InvoiceHeader.Range("A1"))
+
+    .Name = "AR Invoice Details " & Format(Tax_GL_Recon.StartDate.Value, "yyyy-mm")
+    .FieldNames = True
+    .RowNumbers = False
+    .FillAdjacentFormulas = False
+    .PreserveFormatting = True
+    .RefreshOnFileOpen = False
+    .BackgroundQuery = True
+    .RefreshStyle = xlInsertDeleteCells
+    .SavePassword = True
+    .SaveData = True
+    .AdjustColumnWidth = True
+    .RefreshPeriod = 0
+    .PreserveColumnInfo = True
+    .Refresh
+    
+End With
+ODBC_RecordSet2.Close
+
+'Close the Database Connection:
+ODBC_Connection.Close
+
+
+'Define the Ending points of the GL Data extracted from the system:
+
+Sage_GL_LastRow = GL_Datasheet.Cells(Rows.Count, 1).End(xlUp).row
+Sage_GL_LastCol = WorksheetFunction.CountA(GL_Datasheet.Range("1:1"))
+
+'Define the Ending Points of the AR Data extracted from the system:
+
+Sage_AR_LastRow = AR_InvoiceHeader.Cells(Rows.Count, 1).End(xlUp).row
+Sage_AR_LastCol = WorksheetFunction.CountA(AR_InvoiceHeader.Range("1:1"))
+
+'Define the various range objects to reference in data interpetation from the AR History Sheet:
+
+Set Sage_AR_InvoiceNo = AR_InvoiceHeader.Range(AR_InvoiceHeader.Cells(1, AR_InvoiceHeader.Cells.Find("InvoiceNo", MatchCase:=True, LookIn:=xlValues, LookAt:=xlWhole).Column), AR_InvoiceHeader.Cells(Sage_AR_LastRow, AR_InvoiceHeader.Cells.Find("InvoiceNo", MatchCase:=True, LookIn:=xlValues, LookAt:=xlWhole).Column))
+Set Sage_AR_TransactionDate = AR_InvoiceHeader.Range(AR_InvoiceHeader.Cells(1, AR_InvoiceHeader.Cells.Find("TransactionDate").Column), AR_InvoiceHeader.Cells(Sage_AR_LastRow, AR_InvoiceHeader.Cells.Find("TransactionDate").Column))
+Set Sage_AR_Tax = AR_InvoiceHeader.Range(AR_InvoiceHeader.Cells(1, AR_InvoiceHeader.Cells.Find("SalesTaxAmt").Column), AR_InvoiceHeader.Cells(Sage_AR_LastRow, AR_InvoiceHeader.Cells.Find("SalesTaxAmt").Column))
+Set Sage_AR_RegisterNo = AR_InvoiceHeader.Range(AR_InvoiceHeader.Cells(1, AR_InvoiceHeader.Cells.Find("JournalNoGLBatchNo").Column), AR_InvoiceHeader.Cells(Sage_AR_LastRow, AR_InvoiceHeader.Cells.Find("JournalNoGLBatchNo").Column))
+Set Sage_AR_CustNo = AR_InvoiceHeader.Range(AR_InvoiceHeader.Cells(1, AR_InvoiceHeader.Cells.Find("CustomerNo").Column), AR_InvoiceHeader.Cells(Sage_AR_LastRow, AR_InvoiceHeader.Cells.Find("CustomerNo").Column))
+Set Sage_AR_ShipToState = AR_InvoiceHeader.Range(AR_InvoiceHeader.Cells(1, AR_InvoiceHeader.Cells.Find("ShipToState").Column), AR_InvoiceHeader.Cells(Sage_AR_LastRow, AR_InvoiceHeader.Cells.Find("ShipToState").Column))
+
+'Define the various range objects to reference in data interpetation from the GL History Sheet:
+Set Sage_GL_PostingDate = GL_Datasheet.Range(GL_Datasheet.Cells(1, GL_Datasheet.Cells.Find("PostingDate").Column), GL_Datasheet.Cells(Sage_GL_LastRow, GL_Datasheet.Cells.Find("PostingDate").Column))
+Set Sage_GL_DebitAmt = GL_Datasheet.Range(GL_Datasheet.Cells(1, GL_Datasheet.Cells.Find("DebitAmount").Column), GL_Datasheet.Cells(Sage_GL_LastRow, GL_Datasheet.Cells.Find("DebitAmount").Column))
+Set Sage_GL_CreditAmt = GL_Datasheet.Range(GL_Datasheet.Cells(1, GL_Datasheet.Cells.Find("CreditAmount").Column), GL_Datasheet.Cells(Sage_GL_LastRow, GL_Datasheet.Cells.Find("CreditAmount").Column))
+Set Sage_GL_RegisterNo = GL_Datasheet.Range(GL_Datasheet.Cells(1, GL_Datasheet.Cells.Find("JournalRegisterNo").Column), GL_Datasheet.Cells(Sage_GL_LastRow, GL_Datasheet.Cells.Find("JournalRegisterNo").Column))
+Set Sage_GL_DocumentNo = GL_Datasheet.Range(GL_Datasheet.Cells(1, GL_Datasheet.Cells.Find("DocumentNo").Column), GL_Datasheet.Cells(Sage_GL_LastRow, GL_Datasheet.Cells.Find("DocumentNo").Column))
+Set Sage_GL_PostingComment = GL_Datasheet.Range(GL_Datasheet.Cells(1, GL_Datasheet.Cells.Find("PostingComment").Column), GL_Datasheet.Cells(Sage_GL_LastRow, GL_Datasheet.Cells.Find("PostingComment").Column))
+Set Sage_GL_CustNo = GL_Datasheet.Range(GL_Datasheet.Cells(1, GL_Datasheet.Cells.Find("UDF_AR_CR_CUSTOMER_NO").Column), GL_Datasheet.Cells(Sage_GL_LastRow, GL_Datasheet.Cells.Find("UDF_AR_CR_CUSTOMER_NO").Column))
+Set Sage_GL_SourceJournal = GL_Datasheet.Range(GL_Datasheet.Cells(1, GL_Datasheet.Cells.Find("SourceJournal").Column), GL_Datasheet.Cells(Sage_GL_LastRow, GL_Datasheet.Cells.Find("SourceJournal").Column))
+
+
+' Add three column headers to the GL Data set for State and Amount, and Type
+GL_Datasheet.Cells(1, Sage_GL_LastCol + 1).Value = "State"
+GL_Datasheet.Cells(1, Sage_GL_LastCol + 1).Font.Bold = True
+
+GL_Datasheet.Cells(1, Sage_GL_LastCol + 2).Value = "Amount"
+GL_Datasheet.Cells(1, Sage_GL_LastCol + 2).Font.Bold = True
+
+GL_Datasheet.Cells(1, Sage_GL_LastCol + 3).Value = "Type"
+GL_Datasheet.Cells(1, Sage_GL_LastCol + 3).Font.Bold = True
+
+'Fill out Amount Column as the credit amount less the debit amount from the GL Dataset by looping through rows 2 to the last row in the data set and applying formula Column V - Column U rounded to two digits:
+
+For i = 2 To Sage_GL_LastRow
+    GL_Datasheet.Cells(i, Sage_GL_LastCol + 2).Value = "=ROUND(V" & i & "-U" & i & ",2)"
+
+Next i
+
+
+'Define Variables to match transactions between the AR Invoice History Table to their corresponding general ledger account entry
+Dim GL_RegNo As String
+Dim GL_Amount As Double
+Dim GL_CustNo As String
+Dim Range1 As String
+Dim FormulaArray As String
+Dim Range3 As String
+
+
+
+' Loop Through the GL Data
+For i = 2 To Sage_GL_LastRow
+
+'Define GL_RegNo as the value in Column with Column Header JournalRegisterNo in the GL Data Sheet
+
+GL_RegNo = GL_Datasheet.Cells(i, Sage_GL_RegisterNo.Column).Value
+
+' Define GL_Amount as the value in the Column Amount in the GL Data sheet
+GL_Amount = GL_Datasheet.Cells(i, Sage_GL_LastCol + 2).Value
+
+' Define GL_CustNo as the value in the Column UDF_AR_CR_CUSTOMER_NO
+GL_CustNo = GL_Datasheet.Cells(i, Sage_GL_CustNo.Column).Value
+
+'Define Range 1 as the Cell Address of the column from the AR History Table that contains invoice number (the primary key).
+Range1 = Sage_AR_InvoiceNo.Address(External:=True)
+
+'define a variable as the contents of extraneous cell address information that is unncessary and would cause issues with the lookup function for the AR Invoice No. These operations isolate the windows directory of the address reference for later removal so that the array formula functions as there is a character limit inherit in array formula. This windows directory reference is unncessary due to the data being stored in the same workbook and not an external workbook.
+Range1 = Left(Range1, InStr(Range1, "]"))
+Range1 = Right(Range1, Len(Range1) - 1)
+
+'Define the Array Formula to perform return the invoice no where the JournalRegisterNo per the GL Data matches the Journal Register No per the AR data AND the GL Customer No matches the AR History Customer No AND the GL Amount value Matches the total tax on an invoice in the AR History Table.
+FormulaArray = "=INDEX(" & Sage_AR_InvoiceNo.Address(External:=True) & ",MATCH(1,--(" & "(" & Chr(34) & GL_RegNo & Chr(34) & "=" & Sage_AR_RegisterNo.Address(External:=True) & " )*(" & Sage_AR_CustNo.Address(External:=True) & "=" & Chr(34) & GL_CustNo & Chr(34) & ")*(" & GL_Datasheet.Cells(i, Sage_GL_LastCol + 2).Address(External:=True) & "=" & Sage_AR_Tax.Address(External:=True) & ")),0))"
+
+' Remove the Windows file location from the array formula string so that it actually works:
+FormulaArray = Replace(FormulaArray, Range1, "")
+
+'Begin Interperting GL Row Data to determine what type of data it is (GL Adjustment, Sales Tax Collection, or Sales Tax Liability Payment
+
+    
+'First Check if there already exists a value filled into the document number column in the GL Data, if there is not a value there then:
+    If GL_Datasheet.Cells(i, Sage_GL_DocumentNo.Column).Value = "" Then
+    'Check if the data source type is General Journal, if so then:
+        If GL_Datasheet.Cells(i, Sage_GL_SourceJournal.Column).Value = "GJ" Then
+        'Check the comment on the general journal line to see if its a reclassification of sales tax liability from the main sales tax liability account to one of the various quarterly cadenced sales tax liability account.
+        'if it is then set the document number to be equal to the invoice number contained in the GL posting comment, and set the transacation type column value to be Invoice/Credit Memo.
+            If InStr(GL_Datasheet.Cells(i, Sage_GL_PostingComment.Column).Value, "Reclassify invoice") > 0 Or InStr(GL_Datasheet.Cells(i, Sage_GL_PostingComment.Column).Value, "Reclassify CO Home Rule") > 0 Or InStr(GL_Datasheet.Cells(i, Sage_GL_PostingComment.Column).Value, "Reclassify Invoice to") > 0 Or InStr(GL_Datasheet.Cells(i, Sage_GL_PostingComment.Column).Value, "Reclass Invoice to") > 0 Then
+        GL_Datasheet.Cells(i, Sage_GL_DocumentNo.Column).Value = "'" & Format(Right(GL_Datasheet.Cells(i, Sage_GL_PostingComment.Column).Value, 7), "0000000")
+                GL_Datasheet.Cells(i, Sage_GL_LastCol + 3).Value = "Invoice/Credit Memo"
+                               End If
+       'If the data source type was not General Ledger, but instead was Sales Order, and the document number was not filled in already, then run the array formula that was defined about to extrapolate what invoice number the data is for
+    'and set the transaction type column value to be invoice/credit memo
+     ElseIf GL_Datasheet.Cells(i, Sage_GL_SourceJournal.Column).Value = "SO" Then
+            GL_Datasheet.Cells(i, Sage_GL_DocumentNo.Column).FormulaArray = FormulaArray
+            GL_Datasheet.Cells(i, Sage_GL_DocumentNo.Column).Value = GL_Datasheet.Cells(i, Sage_GL_DocumentNo.Column).Value
+            GL_Datasheet.Cells(i, Sage_GL_LastCol + 3).Value = "Invoice/Credit Memo"
+         End If
+     If InStr(GL_Datasheet.Cells(i, Sage_GL_PostingComment.Column).Value, "Reclassify invoice") > 0 Or InStr(GL_Datasheet.Cells(i, Sage_GL_PostingComment.Column).Value, "Reclassify CO Home Rule") > 0 Then
+   
+    End If
+    
+'If the document number was already filled in and the data source is Sales Orders, then set the value in the transaction type column to be equal to Invoice/Credit Memo:
+    If GL_Datasheet.Cells(i, Sage_GL_SourceJournal.Column).Value = "SO" Then
+    GL_Datasheet.Cells(i, Sage_GL_LastCol + 3).Value = "Invoice/Credit Memo"
+'If the document number was already filled in, and the data source is Accounts Payable, then set the value in the transaction type column to be equal to Payment
+
+    ElseIf GL_Datasheet.Cells(i, Sage_GL_SourceJournal.Column).Value = "AP" Then
+    GL_Datasheet.Cells(i, Sage_GL_LastCol + 3).Value = "Payment"
+    End If
+'End the statment
+    End If
+'Move to the next row
+Next i
+
+' Rerun the same loop defining transaction type for rows excluded by the initial loop because they had document number filled in:
+For i = 2 To Sage_GL_LastRow
+    If GL_Datasheet.Cells(i, Sage_GL_SourceJournal.Column).Value = "SO" Then
+    GL_Datasheet.Cells(i, Sage_GL_LastCol + 3).Value = "Invoice/Credit Memo"
+    ElseIf GL_Datasheet.Cells(i, Sage_GL_SourceJournal.Column).Value = "AP" Then
+    GL_Datasheet.Cells(i, Sage_GL_LastCol + 3).Value = "Payment"
+    End If
+Next i
+
+
+'Loop through the GL Data and Look up the shiptostate of the invoice/document number from the AR Invoice History Table:
+For i = 2 To Sage_GL_LastRow
+GL_Datasheet.Cells(i, Sage_GL_LastCol + 1).Value = WorksheetFunction.XLookup(GL_Datasheet.Cells(i, Sage_GL_DocumentNo.Column), Sage_AR_InvoiceNo, Sage_AR_ShipToState, "=" & Chr(34) & Chr(34), 0)
+Next i
+
+'Loop through the GL Data and check and see if the data source is accounts payable, if so extract the relevant jurisdiction from the vendor id in the GL Posting Comment
+For i = 2 To Sage_GL_LastRow
+If GL_Datasheet.Cells(i, Sage_GL_SourceJournal.Column).Value = "AP" Then
+    GL_Datasheet.Cells(i, Sage_GL_LastCol + 1).Value = "=TRIM(MID(M" & i & ",FIND(" & Chr(34) & "TAX" & Chr(34) & ",M" & i & ")+4,3))"
+    GL_Datasheet.Cells(i, Sage_GL_LastCol + 1).Value = GL_Datasheet.Cells(i, Sage_GL_LastCol + 1).Value
+    GL_Datasheet.Cells(i, Sage_GL_LastCol + 3).Value = "Payment"
+    
+    
+End If
+Next i
+
+'Begins section to write GJE to reclassify invoices for states who have their own sales tax liability account
+
+'Define an object to store the total invoice amount
+Dim InvoiceTotal As Double
+
+'Define a range object for the amount column created in the earlier loops
+Dim Amount As Range
+
+'Define a string object to contain the state value created in the earlier loops
+Dim state As String
+
+'Define a sheet object to write the GL Entry upload too:
+Dim GL_Entry As Worksheet
+
+'Define a long object to keep track/count the number of entries written to make sure entry lines are not being over-written
+Dim Counter As Long
+
+' Define a string to hold the account key for the debit line
+Dim AccountKeySTP As String
+
+' Define a string to hold the account key for the credit line
+Dim AccountKey2 As String
+
+'Define a string to hold the source journal
+Dim SourceJournal As String
+
+'Set the first account equal to the main sales tax payable account
+AccountKeySTP = "243000000"
+
+'Set the Amount Range variable to be the amount column created in the previous loops
+Set Amount = GL_Datasheet.Range(GL_Datasheet.Cells(1, GL_Datasheet.Cells(1, Sage_GL_LastCol + 2).Column), GL_Datasheet.Cells(Sage_GL_LastRow, GL_Datasheet.Cells(, Sage_GL_LastCol + 2).Column))
+
+' Set the GL_Entry worksheet variable to be a new worksheet added to the workbook
+Set GL_Entry = Sheets.Add
+
+'Rename the worksheet to be Entry
+GL_Entry.Name = "Entry"
+
+'Start a loop through each the GL Datasheet rows
+For i = 2 To Sage_GL_LastRow
+
+'Define invoice total the be the total amount for each row in the GL data related to a particular invoice number, e.g sum up all the debits and credits of every row pertaining to a particular invoice number and store that sum in the variable invoice total
+InvoiceTotal = WorksheetFunction.SumIfs(Amount, Sage_GL_DocumentNo, GL_Datasheet.Cells(i, Sage_GL_DocumentNo.Column))
+
+'Define State to be the value in the state column for the row being analyzed
+On Error Resume Next
+state = GL_Datasheet.Cells(i, Sage_GL_LastCol + 1).Value
+'Define Source Journal to be the value in the SourceJournal column in the GL Data
+SourceJournal = GL_Datasheet.Cells(i, Sage_GL_SourceJournal.Column).Value
+
+'Define Counter as the number of filled in rows on the Entry worksheet
+Counter = WorksheetFunction.CountA(GL_Entry.Range("A:A"))
+
+'Check to see if no data has been entered on the entry sheet, if so Counter will be zero, and needs to be defined as 1
+If Counter = 0 Then
+Counter = Counter + 1
+End If
+
+' Check if the sum of the rows related to that invoice number is not zero, then check whether the state is etheir NY, NJ, CA, MN, ME,WV,ND,TN,KS,IA, or CO, and that the transaction type is not a sales tax payment.
+If InvoiceTotal <> 0 And state = "NY" And SourceJournal <> "AP" _
+Or InvoiceTotal <> 0 And state = "NJ" And SourceJournal <> "AP" _
+Or InvoiceTotal <> 0 And state = "CA" And SourceJournal <> "AP" _
+Or InvoiceTotal <> 0 And state = "MN" And SourceJournal <> "AP" _
+Or InvoiceTotal <> 0 And state = "ME" And SourceJournal <> "AP" _
+Or InvoiceTotal <> 0 And state = "WV" And SourceJournal <> "AP" _
+Or InvoiceTotal <> 0 And state = "ND" And SourceJournal <> "AP" _
+Or InvoiceTotal <> 0 And state = "IA" And SourceJournal <> "AP" _
+Or InvoiceTotal <> 0 And state = "KS" And SourceJournal <> "AP" _
+Or InvoiceTotal <> 0 And state = "TN" And SourceJournal <> "AP" _
+Or InvoiceTotal <> 0 And state = "CO" And SourceJournal <> "AP" _
+Or InvoiceTotal <> 0 And state = "KY" And SourceJournal <> "AP" _
+Then
+
+' If the transaction is an sales invoice, and related to one of those states, then check if counter is greater than 1 (or in other words if this is the first line of the journal entry).
+If Counter > 1 Then
+' If this isn't the first line of the journal entry then increase counter by 1 to reflect the next blank row on the entry sheet else do nothing
+Counter = Counter + 1
+End If
+
+' on the Entry Sheet, with the row number being based on the value of counter, modify the value in column A to be GJ and the subsequent next row to be GJ
+GL_Entry.Cells(Counter, 1).Value = "GJ"
+GL_Entry.Cells(Counter + 1, 1).Value = "GJ"
+
+' on the Entry Sheet, with the row number being based on the value of counter, modify the value in column B to be the date of the transaction in the GL Data and the subsequent next row to be the same date
+GL_Entry.Cells(Counter, 2).Value = GL_Datasheet.Cells(i, Sage_GL_PostingDate.Column).Value
+GL_Entry.Cells(Counter + 1, 2).Value = GL_Datasheet.Cells(i, Sage_GL_PostingDate.Column).Value
+
+'Check what the state is, and depending on the state, define the value of accountkey2 to be the account key for the corresponding GL account that the accrued sales tax needs reclassified to
+If state = "NY" Then
+    AccountKey2 = "9999900AH"
+        ElseIf state = "NJ" Then
+            AccountKey2 = "9999900AG"
+                ElseIf state = "MN" Then
+                    AccountKey2 = "9999900AF"
+                        ElseIf state = "ME" Then
+                            AccountKey2 = "9999900AE"
+                                ElseIf state = "WV" Then
+                                    AccountKey2 = "9999900BF"
+                                        ElseIf state = "ND" Then
+                                            AccountKey2 = "9999900BE"
+                                                ElseIf state = "TN" Then
+                                                    AccountKey2 = "9999900AI"
+                                                        ElseIf state = "KS" Then
+                                                            AccountKey2 = "9999900AD"
+                                                                ElseIf state = "IA" Then
+                                                                    AccountKey2 = "9999900AC"
+                                                                        ElseIf state = "CA" Then
+                                                                            AccountKey2 = "9999900AA"
+                                                                                ElseIf state = "CO" Then
+                                                                                    AccountKey2 = "9999900BG"
+                                                                                        ElseIf state = "KY" Then
+                                                                                            AccountKey2 = "9999900BD"
+
+End If
+
+' on the Entry Sheet, with the row number being based on the value of counter, modify the value in column E to be the accountkeys1 and the subsequent next row to be the accountkey2 as defined by the previous logical expression
+GL_Entry.Cells(Counter, 5).Value = AccountKeySTP
+GL_Entry.Cells(Counter + 1, 5).Value = AccountKey2
+
+' on the Entry Sheet, with the row number being based on the value of counter, modify the value in column F to be Reclassify Invoice to <state> Sales Tax Payable: <invoiceno> and the subsequent next row to be the same
+GL_Entry.Cells(Counter, 6).Value = "Reclassify Invoice to " & state & " Sales Tax Payable: " & GL_Datasheet.Cells(i, Sage_GL_DocumentNo.Column).Value
+GL_Entry.Cells(Counter + 1, 6).Value = "Reclassify Invoice to " & state & " Sales Tax Payable: " & GL_Datasheet.Cells(i, Sage_GL_DocumentNo.Column).Value
+
+'Check whether the net impact of a particular invoice no in sales tax payable is a net debit or net credit to the account, the amount column is defined as credits minus debts, thus if a value is negative, its a net debit, if its positive a net credit.
+If InvoiceTotal < 0 Then
+
+'If the impact of the total amount related to the document number is a net debit, then set the value of column H for the line with accountkey1 to be the absolute value of the invoice total and the value in column G in the row with accountkey2 to be the absolute value of the invoice total (Credit Sales Tax Payable Debit Sales Tax Payable for a specific state the move the debit balance)
+GL_Entry.Cells(Counter, 8).Value = Abs(InvoiceTotal)
+GL_Entry.Cells(Counter + 1, 7).Value = Abs(InvoiceTotal)
+
+'If the impact of invoice total is a net credit, then do the opposite, setting column G for the row with accountkey1 to the absolute value of the invoicetotal and the value of the accountkey2 row, column H to be the absolutevalue of the invocie total
+ElseIf InvoiceTotal > 0 Then
+GL_Entry.Cells(Counter, 7).Value = Abs(InvoiceTotal)
+GL_Entry.Cells(Counter + 1, 8).Value = Abs(InvoiceTotal)
+
+End If
+End If
+'Evalulate the next row
+Next i
+
+End Sub
+
