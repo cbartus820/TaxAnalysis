@@ -1,0 +1,209 @@
+Sub Save_FOT_Credit_Report()
+
+Dim Credit_Report_CSV As Workbook
+Dim Killbook As String
+
+Dim Savename As String
+Dim SaveFileName As String
+Dim SaveFolder As String
+Dim SaveDir As String
+Dim FolderExists As String
+Dim SaveLocation As String
+Dim SaveDrive As String
+Dim CreateDir As String
+
+Set Credit_Report_CSV = ActiveWorkbook
+Killbook = Credit_Report_CSV.FullName
+
+SaveDrive = "C:"
+SaveFolder = "\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Vertex\Vertex - Credit Report\"
+SaveDir = SaveDrive & SaveFolder
+SaveFileName = Format(ActiveSheet.Range("C2").Value, "yyyy-mm") & " FOT_Credits_And_Adjustments.csv"
+Savename = SaveDir & SaveFileName
+
+Credit_Report_CSV.SaveCopyAs (Savename)
+Credit_Report_CSV.Close
+
+Kill Killbook
+
+
+
+
+End Sub
+
+
+Sub Save_Unassigned_Data_Report()
+
+
+Dim Credit_Report_CSV As Workbook
+Dim Killbook As String
+
+Dim Savename As String
+Dim SaveFileName As String
+Dim SaveFolder As String
+Dim SaveDir As String
+Dim FolderExists As String
+Dim SaveLocation As String
+Dim SaveDrive As String
+Dim CreateDir As String
+
+Set Credit_Report_CSV = ActiveWorkbook
+Killbook = Credit_Report_CSV.FullName
+
+SaveDrive = "C:"
+SaveFolder = "\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Vertex\Vertex Unassigned Data Report\"
+SaveDir = SaveDrive & SaveFolder
+SaveFileName = Format(ActiveSheet.Range("A3").Value, "yyyy-mm") & " FOT_Returns_Unassigned_Data.csv"
+Savename = SaveDir & SaveFileName
+
+Credit_Report_CSV.SaveCopyAs (Savename)
+Credit_Report_CSV.Close
+
+Kill Killbook
+
+End Sub
+
+
+Sub Save_Reconciliation_Report()
+
+
+Dim Credit_Report_CSV As Workbook
+Dim Killbook As String
+
+Dim Savename As String
+Dim SaveFileName As String
+Dim SaveFolder As String
+Dim SaveDir As String
+Dim FolderExists As String
+Dim SaveLocation As String
+Dim SaveDrive As String
+Dim CreateDir As String
+
+Set Credit_Report_CSV = ActiveWorkbook
+Killbook = Credit_Report_CSV.FullName
+
+SaveDrive = "C:"
+SaveFolder = "\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Vertex\Vertex - Returns Reconciliation Report\"
+SaveDir = SaveDrive & SaveFolder
+SaveFileName = Format(ActiveSheet.Range("C2").Value, "yyyy-mm") & " FOT_Returns_Reconciliation.csv"
+Savename = SaveDir & SaveFileName
+
+Credit_Report_CSV.SaveCopyAs (Savename)
+Credit_Report_CSV.Close
+
+Kill Killbook
+
+End Sub
+
+
+Sub Save_Vertex_Returns_Copy()
+
+
+
+
+Dim SaveFolder As String
+Dim SaveDir As String
+Dim FolderExists As String
+Dim SaveDrive As String
+Dim Sourcefolder As String
+Dim MoveFolder As String
+Dim SaveState As String
+Dim SaveDate As String
+Dim SaveYear As String
+Dim SaveMonth As String
+Dim FolderName As String
+Dim fso As Object
+Dim CheckDir As String
+
+
+Set fso = CreateObject("Scripting.filesystemobject")
+
+'Based on User Input Create Data Points To reference for naming conventions and storage locations
+SaveDate = InputBox("Date of Return Period?")
+'Asks User for the Return Date (E.G Period Ending 12/31/2021)
+
+SaveYear = Format(SaveDate, "YYYY") & "-"
+'Spits out YYYY String based on date inputed and appends a dash to it
+SaveMonth = Format(SaveDate, "MM")
+'Spits out MM String based on date inputed
+FolderName = SaveYear & SaveMonth
+'Create a string that contained the ultimate folder name e.g 2021-12
+
+MsgBox ("Open the folder with the PDF Copies")
+' Queries User as to the location of the PDF copies of returns downloaded by Vertex
+
+
+With Application.FileDialog(msoFileDialogFolderPicker)
+    If .Show = -1 Then
+    Sourcefolder = .SelectedItems(1)
+    End If
+End With
+
+' End of User Querry
+
+MoveFolder = Sourcefolder
+' Holds the original SourceFolder Variable as a String for later reference
+
+Sourcefolder = Sourcefolder & "\*"
+'Appends \ and wildcard to loop through files in folder
+
+ Dim StrFile As String
+StrFile = Dir(Sourcefolder)
+    ' Sets StrFile equivilent to the textual path for the first file in the folder
+    
+    Do While Len(StrFile) > 0
+    ' Starts a loop checking whether the length of the string holding the subject file's path is greater than 0 - Will always return true on the first round throug beause Strfile is created and referenced prior to anything else
+    
+        StrFile = Dir(Sourcefolder)
+        'Sets the Variable of StrFile = to the textual path of the first file to be moved  e.g C:\Users\christopher.bartus\Downloads\Returns\AL State Simplified Sellers Use Return.PDF
+        ' Note that this will graduate to the next file as it iterates through the number of files in the folder
+        SaveState = Left(StrFile, 2) & "\"
+        'Extracts the State of Reconciliation from the string of the file name, eg takes the left hand most 2 characters from AL State Simplified Sellers Use Return to return AL and then appends a backslash
+        SaveDrive = "C:"
+        'The Drive where the desired Save Location is
+        
+        SaveFolder = "\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\"
+        ' The Subfolder where the individual state folders are kept
+        
+        SaveDir = SaveDrive & SaveFolder & SaveState & Left(SaveYear, 4) & "\" & FolderName & "\" & FolderName & " Vertex Copy " & StrFile
+        ' The Ultimate Directory/file name to be saved E.G C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\AL\2021\2021-12\2021-12 Vertex Copy AL State Simplified Sellers Use Return.PDF
+        
+        
+        CheckDir = SaveDrive & SaveFolder & SaveState & Left(SaveYear, 4) & "\" & FolderName & "\"
+        ' String to Check and See if the Year and Month folder for the state exists yet (only applicable in transitions to new years when the New Year's Folder hasn't been made yet
+        
+        
+        If Dir(CheckDir, vbDirectory) = "" And Len(SaveState) > 1 Then
+            ' Checks to See if the Parent folder to save the file in exists yet. If it doesn't then returns true. E.G Checks to see if C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\AL\2021\2021-12\ and whether the state abbreviation exists as more than just a back slash
+                        
+            If Dir(SaveDrive & SaveFolder & SaveState & Left(SaveYear, 4) & "\") = "" Then
+            ' If the ultiamte end directory doesn't exist then it checks to see if the parent folder for the year exists within the state folder, if it doesn't exist returns true
+            
+                    MkDir (SaveDrive & SaveFolder & SaveState & Left(SaveYear, 4))
+                    ' Make the Year folder inside the state folder
+                
+                    MkDir (CheckDir)
+                    ' Make the ultimate end directory to move the file to
+            
+                Else
+                    ' If the year folder already exists then just make the ultimate end destination folder
+                    MkDir (SaveDrive & SaveFolder & SaveState & Left(SaveYear, 4) & "\" & FolderName)
+            End If
+            
+        End If
+        
+        If Len(StrFile) > 0 And Dir(SaveDir) = "" Then
+        ' Check to see that the source path exsits, and proceed to the next command
+                fso.MoveFile Source:=MoveFolder & "\" & StrFile, Destination:=SaveDir
+                ' Move the file from the returns folder to the end destination folder
+            Else
+        ' Otherwise ignoring errors delete the file from the source folder
+                On Error Resume Next
+                    fso.DeleteFile MoveFolder & "\" & StrFile
+        End If
+    Loop
+    
+End Sub
+
+
+
