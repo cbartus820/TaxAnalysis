@@ -599,7 +599,7 @@ Dim Exemption_Reason_Pivot_Cache As PivotCache
 Dim Exemption_Range As Range
 Dim Exemption_Pivots As PivotTable
 Dim County As PivotField
-Dim City As PivotField
+Dim city As PivotField
 Dim Exemption_Reason As PivotField
 Dim Exemp_VGA As PivotField
 Dim Exemp_VNTA As PivotField
@@ -3377,14 +3377,14 @@ Dim DeductionTypes As Range
 Dim Loop_DeductionType As Range
 Dim DeductionTypeDict As Object
 Dim Key As Variant
-Dim lastRow As Long
+Dim LastRow As Long
 Dim Nth_ded As Long
 
 
 With Vtex_Nt
-lastRow = Vtex_Nt.Cells.Find("Grand Total", Vtex_Nt.Range("A1"), xlValues).row
+LastRow = Vtex_Nt.Cells.Find("Grand Total", Vtex_Nt.Range("A1"), xlValues).row
 
-Set DeductionTypes = Vtex_Nt.Range("N" & Vtex_Nt.Cells.Find("Trimmed Invoice No", after:=Vtex_Nt.Range("A1")).row + 1 & ":N" & lastRow)
+Set DeductionTypes = Vtex_Nt.Range("N" & Vtex_Nt.Cells.Find("Trimmed Invoice No", after:=Vtex_Nt.Range("A1")).row + 1 & ":N" & LastRow)
 End With
 Set DeductionTypeDict = CreateObject("Scripting.Dictionary")
 
@@ -4074,7 +4074,7 @@ End Sub
 
 Sub Delete_Empty_Columns()
 
-Dim lastRow As Long
+Dim LastRow As Long
 Dim lastCol As Long
 Dim i As Integer
 
@@ -5317,5 +5317,60 @@ Sub PromptUser()
     End If
     
 End Sub
+
+Sub CleanErrorReport()
+    Dim ErrorReport As Worksheet
+    Dim ShipToState As Range
+    Dim ShipToStateRange As Range
+    Dim ShipToStateCol As Long
+    Dim Starting As Long
+    Dim Ending As Long
+    Dim i As Long
+    Application.ScreenUpdating = False
+    Set ErrorReport = ActiveWorkbook.Sheets("Error Report")
+    Starting = 3 + 1
+    Ending = LastRow(ErrorReport)
+    ShipToStateCol = Application.Match("Ship To State", ErrorReport.Range("3:3"), 0)
+    Set ShipToStateRange = ErrorReport.Range(ErrorReport.Cells(Starting, ShipToStateCol), ErrorReport.Cells(Ending, ShipToStateCol))
+    
+    For i = ShipToStateRange.Rows.Count To 4 Step -1
+        Set ShipToState = ErrorReport.Cells(i, ShipToStateCol)
+        
+        If ShipToState.Value = "" Then
+            ' Skip blank cells
+        ElseIf CheckState(ShipToState.Value) = False Then
+            ' Delete row if the ShipToState is not in the state list
+            ShipToState.EntireRow.Delete
+        ElseIf ShipToState.Value = "FL" And ErrorReport.Cells(ShipToState.row, Application.Match("Tax Schedule", ErrorReport.Range("3:3"), 0)).Value = "MKTPLCFAC" Then
+            ' Delete row if the ShipToState is FL and TaxSchedule is Mktplcfac
+            ShipToState.EntireRow.Delete
+        End If
+    Next i
+    
+    Application.ScreenUpdating = True
+End Sub
+
+
+Function LastRow(ws As Worksheet) As Long
+    LastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).row
+End Function
+Function CheckState(str As String) As Boolean
+    Dim stateList() As Variant
+    Dim i As Integer
+    Dim matchFound As Boolean
+    
+    'Initialize array with list of states
+    stateList = Array("AL", "AR", "AZ", "CA", "CO", "CT", "DC", "FL", "GA", "HI", "IA", "ID", "IL", "IN", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN", "MS", "NC", "ND", "NE", "NJ", "NM", "NV", "NY", "OH", "OK", "PA", "RI", "SC", "TN", "TX", "UT", "VA", "WA", "WI", "WV")
+    
+    ' Loop through array and check for match
+    For i = LBound(stateList) To UBound(stateList)
+        If str = stateList(i) Then
+            matchFound = True
+            Exit For
+        End If
+    Next i
+    
+    CheckState = matchFound
+End Function
 
 
