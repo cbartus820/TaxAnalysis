@@ -12,7 +12,7 @@ Public i As Integer 'Defined looping variable used in many many places throughou
 
 'Sage Queries - Objects used within data dumps from ERP
 Public Conn As New ADODB.Connection ' Variable for ADODB SQL Querry into Sage to download Sage Data
-Public Recset As New ADODB.RecordSet ' Variable to define a recordset to store the data querried from Sage
+Public Recset As New ADODB.Recordset ' Variable to define a recordset to store the data querried from Sage
 Public SQL As String ' Variable to hold the SQL querry in string form
 Public ConString As String 'Variable to hold DNS information for the ODCB database connection
 
@@ -148,6 +148,8 @@ Public V_Pivot As Range 'Range Object for Pivot Cache
     Public Loopitem4 As PivotItem
     Public Loopitem6 As PivotItem
     
+    
+    'Variables to create a pivot table of Vertex Data (Nontaxable) that excludes freight
     Public Vertex_Nontax_Exclude_Freight As PivotTable
     Public Vertex_Nontax_Exclude_Freight_InvoiceNo As PivotField
     Public Vertex_Nontax_Exclude_Freight_Product_Class_Code As PivotField
@@ -161,6 +163,7 @@ Public V_Pivot As Range 'Range Object for Pivot Cache
     Public Vertex_Nontax_Exclude_Freight_ImpositionType As PivotField
     Public Vertex_NonTax_Exclude_Freight_Sheet As Worksheet
     Public Vertex_Nontax_Exclude_Freight_TotalExempt As PivotField
+    
     
     Public Vertex_Gross_Sheet As Worksheet
     Public VGP_Imposition_Type As PivotField
@@ -419,7 +422,6 @@ Public StartTime As Double
 Public TimeToComplete As Worksheet
 
 'Setup Error Report
-
 Public Trimmed_Invoice_Col As Long
 Public Trimmed_Invoice_Col_Letter As String
 Public Lookuplocation As String
@@ -430,7 +432,7 @@ Public VertexPasteRange As Range
 
 'Exemption Reasons
 
-Sub RecordExecutionTime(TimeToComplete As Worksheet, row As Long, label As String, StartTime As Double, elapsedTime As Double)
+Sub Step_02_Secondary_Record_Execution_Time(TimeToComplete As Worksheet, row As Long, label As String, StartTime As Double, elapsedTime As Double)
     TimeToComplete.Cells(row, 1).Value = label
     TimeToComplete.Cells(row, 2).Value = elapsedTime
     TimeToComplete.Cells(row, 3).Value = elapsedTime - StartTime
@@ -438,11 +440,48 @@ End Sub
 
 Sub Step_02_Main_Call_Recon_Subroutines()
 
+'The Step_02_Main_Call_Recon_Subroutines subroutine is called after the user has entered data onto the user form. This subroutine is responsible for calling various subroutines to perform different tasks in the reconciliation process.
+'Let's go through each step:
+    'The screen updating is turned off, and the calculation mode is set to automatic.
+    'The Taxbook object is set as the Vertex_Extract workbook.
+    'A new worksheet named "Script Metrics" is added to record the execution time of different subroutines.
+    'The Step_03_Main_CreateWorksheets subroutine is called to create blank worksheets for various tabs, including Summary, Sage, SagePivot, Vertex Pivot, MKTPLCFAC, Error Report, Zipcodes, and credit report.
+    'The Step_04_Main_Import_Zipcode_Database subroutine is called to import a Zipcode Database CSV file. This step may no longer be relevant due to deprecated functionality.
+    'The Step_05_Main_Import_Sage_Data subroutine is called to determine SQL statements for data import and import the Sage data. It also checks if the user has enabled the use of Quanda data checkbox on the user form.
+    'The Step_06_Main_ImportAndFilter_Customer_Exemptions subroutine is called to extract a list of customers and non-expired exemptions from the Vertex Configuration Report based on the reconciliation parameters.
+    'The Step_07_Main_Convert_Invoice_Numbers subroutine is called to create a primary key "Trimmed Invoice No" between the datasets for comparison.
+    'The Step_08_Main_Prepare_Data_For_Pivots subroutine is called to define ranges and create pivot caches for Sage and Vertex datasets.
+    'The Step_09_Main_Vertex_Create_NonTaxable_Pivot_Exclude_Freight subroutine is called to create a pivot table of non-taxable Vertex sales, excluding freight charges.
+    'The Step_10_Main_Create_Vertex_Freight_Sales_Pivot subroutine is called to create a pivot table of Vertex sales that includes only freight.
+    'The Step_11_Main_Create_Vertex_Gross_Pivots subroutine is called to create pivot tables for Vertex gross sales and non-taxable sales.
+    'The Step_12_Main_Create_Vertex_Tax_Pivot subroutine is called to create pivot tables for Vertex tax.
+    'The Step_13_Main_Create_Sage_Pivot subroutine is called to create a pivot table of Sage data for comparison to Vertex data.
+    'The Step_14_Main_Create_Mktplc_Sage_Pivot subroutine is called to create a pivot table of Sage data for marketplace sales.
+    'The Step_15_Main_Compare_Data subroutine is called to perform various comparisons between datasets while compensating for data structure differences.
+    'The Step_16_Main_Setup_Error_Report subroutine is called to create an Error Report sheet to store details regarding transactions with variances between the two systems.
+    'The Step_17_Main_Setup_Summary_Sheet subroutine is called to create a summary sheet that summarizes both Vertex and Sage information, including marketplace sales and deductions by category.
+    'The Step_18_Main_Input_Return_Data subroutine is called to request data input from the user if return details are available.
+    'The Step_19_Main_Create_Exemption_Pivot subroutine is called to create a pivot table of deductions.
+    'The Z_FN_Lookup_Exemption_Reason subroutine is called to perform a lookup for exemption reasons.
+    'The ZA_FN_Format_Summary subroutine is called to format the summary sheet.
+    'The ZB_FN_Format_Headers subroutine is called to format the headers.
+    'The ZD_Create_Index subroutine is called to create an index of the excel tabs.
+    'If there are variances in the datasets, the FN_Filter_for_Errors subroutine is called to filter for errors.
+    'If there are no variances in the datasets and the "Close Query" checkbox is not checked, a message is displayed indicating the completion of the task, and the reconciliation workbook is saved and closed.
+    'The ZC_FN_Save_Recon subroutine is called to save the reconciliation.
+
+'This subroutine acts as the main control point for executing the reconciliation process by calling different subroutines in a specific order
+
+'For Calculation Speed Set Screen Updating to be False
     Application.ScreenUpdating = False
-    Application.Calculation = xlAutomatic
-    Set Taxbook = Vertex_Extract
+    
+'Ensure Automatic Calculation is enabled
+Application.Calculation = xlAutomatic
+    
+'Declare Workbook Variable for future use
+Set Taxbook = Vertex_Extract
 
-
+'
     StartTime = Timer
     Set TimeToComplete = Taxbook.Sheets.Add
     TimeToComplete.Name = "Script Metrics"
@@ -452,116 +491,114 @@ Sub Step_02_Main_Call_Recon_Subroutines()
 'originally intended to create all sheets within the reconciliation file, as additional revisions and improvements and added features were implimented to the code, some subroutines still create their own worksheets
 
     Call Step_03_Main_CreateWorksheets
-    RecordExecutionTime TimeToComplete, 2, "Fn_Create_Worksheets", StartTime, Timer
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 2, "Fn_Create_Worksheets", StartTime, Timer
     StartTime = Timer
 
 'Imports a Zipcode Database CSV file, originally intended to help with the populating of tax returns, the use of the zipcode database is unfortunately depreciated but the code has been retained in case it is revisited
     Call Step_04_Main_Import_Zipcode_Database
-    RecordExecutionTime TimeToComplete, 3, "Import_Zipcode_Database", StartTime, Timer
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 3, "Import_Zipcode_Database", StartTime, Timer
     StartTime = Timer
 
 'Determines SQL Statements for Data import and imports the data based on whether the user enabled the use quanda data checkbox on the userform and import company data (Step 1 Accumulated Vertex Data already)
     Call Step_05_Main_Import_Sage_Data
-    RecordExecutionTime TimeToComplete, 4, "Import_Sage_Data", StartTime, Timer
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 4, "Import_Sage_Data", StartTime, Timer
     StartTime = Timer
 
 'Extract from the Vertex Configuration Report a list of customers an non-expired exemptions for the reconciliation perameters
     Call Step_06_Main_ImportAndFilter_Customer_Exemptions
-    RecordExecutionTime TimeToComplete, 5, "Import_Exemptions", StartTime, Timer
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 5, "Import_Exemptions", StartTime, Timer
     StartTime = Timer
 
 'Create a Primary Key "Trimmed Invoice No" between both datasets for comparison
     Call Step_07_Main_Convert_Invoice_Numbers
-    RecordExecutionTime TimeToComplete, 6, "Convert_Invoice_Numbers", StartTime, Timer
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 6, "Convert_Invoice_Numbers", StartTime, Timer
     StartTime = Timer
 
 'Define Ranges and Create Pivot Caches for Sage and Vertex Datasets
     Call Step_08_Main_Prepare_Data_For_Pivots
-    RecordExecutionTime TimeToComplete, 7, "Create_Pivot_Range_References", StartTime, Timer
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 7, "Create_Pivot_Range_References", StartTime, Timer
     StartTime = Timer
     
 'Create Pivots of Various Views of Data
 
 'Create a Pivot of Nontaxable Vertex Sales that exclude both Marketplace and Regular Coded Sales Freight Charges to create a comparable data set between Sage which includes frieght as its own column, and Vertex, which includes freight in Gross, Taxable, Exempt, and Nontaxable Sales.
     Call Step_09_Main_Vertex_Create_NonTaxable_Pivot_Exclude_Freight
-    RecordExecutionTime TimeToComplete, 8, "Vertex_Create_NonTaxable_Pivot_Exclude_Freight", StartTime, Timer
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 8, "Vertex_Create_NonTaxable_Pivot_Exclude_Freight", StartTime, Timer
     StartTime = Timer
 
 'Create a pivot of vertex sales that includes only freight
     Call Step_10_Main_Create_Vertex_Freight_Sales_Pivot
-    RecordExecutionTime TimeToComplete, 9, "Create_Vertex_Freight_Sales_Pivot", StartTime, Timer
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 9, "Create_Vertex_Freight_Sales_Pivot", StartTime, Timer
     StartTime = Timer
 
 'Create Pivot Tables for Vertex Gross Sales, and Nontaxable Sales
     Call Step_11_Main_Create_Vertex_Gross_Pivots
-    RecordExecutionTime TimeToComplete, 10, "Create_Vertex_Gross_Pivot", StartTime, Timer
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 10, "Create_Vertex_Gross_Pivot", StartTime, Timer
     StartTime = Timer
     
 'Create Pivot Tables for Vertrex Tax
-    Call Step_12_Create_Vertex_Tax_Pivot
-    RecordExecutionTime TimeToComplete, 11, "Create_Vertex_Tax_Pivot", StartTime, Timer
+    Call Step_12_Main_Create_Vertex_Tax_Pivot
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 11, "Create_Vertex_Tax_Pivot", StartTime, Timer
     StartTime = Timer
 'Create Pivot of Sage Data for Comparison to Vertex Data
-    Call Step_13_FN_Create_Sage_Pivot
-    RecordExecutionTime TimeToComplete, 12, "Create_Sage_Pivot", StartTime, Timer
+    Call Step_13_Main_Create_Sage_Pivot
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 12, "Create_Sage_Pivot", StartTime, Timer
     StartTime = Timer
     
 'Create a Pivot of Sage Data for Marketplace Sales
-    Call Step_14_Create_Mktplc_Sage_Pivot
-    RecordExecutionTime TimeToComplete, 13, "Create_Mktplc_Sage_Pivot", StartTime, Timer
+    Call Step_14_Main_Create_Mktplc_Sage_Pivot
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 13, "Create_Mktplc_Sage_Pivot", StartTime, Timer
     StartTime = Timer
 
+'Create various justapositions between datasets while compensating for data structure differences
     Call Step_15_Main_Compare_Data
-    RecordExecutionTime TimeToComplete, 14, "Compare_Data", StartTime, Timer
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 14, "Compare_Data", StartTime, Timer
     StartTime = Timer
 
+'Create an Error Report to store details regarding transactions that have a variance between the two systems
     Call Step_16_Main_Setup_Error_Report
-    RecordExecutionTime TimeToComplete, 15, "Setup_Error_Report", StartTime, Timer
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 15, "Setup_Error_Report", StartTime, Timer
     StartTime = Timer
 
+'Create a summary sheet that summarizes both Vertex and Sage information with a section for marketplace facilitated sales and also for deductions by category
     Call Step_17_Main_Setup_Summary_Sheet
-    RecordExecutionTime TimeToComplete, 16, "Setup_Summary_Sheet", StartTime, Timer
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 16, "Setup_Summary_Sheet", StartTime, Timer
+    StartTime = Timer
+    
+'Request Data input from the user if return details are available
+    Call Step_18_Main_Input_Return_Data
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 17, "Input_Return_Data", StartTime, Timer
     StartTime = Timer
 
-    Call W_FN_Input_Return_Data
-    RecordExecutionTime TimeToComplete, 17, "Input_Return_Data", StartTime, Timer
+'Create a pivot table of deductions
+    Call Step_19_Main_Create_Exemption_Pivot
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 19, "Create_Exemption_Pivot", StartTime, Timer
+    StartTime = Timer
+'Format Cells on Summary Sheet Report
+    Call Step_20_Main_Format_Summary_Sheet
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 20, "Format_Summary", StartTime, Timer
+    StartTime = Timer
+'Create an Index of Tabs within the document
+    Call Step_21_Main_Create_Index_Of_Sheets
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 21, "Create_Index", StartTime, Timer
+    StartTime = Timer
+'Filter the Vertex Data to display transactions with variances between Sage and Vertex
+    Call Step_22_Main_Filter_Vertex_Data_For_Errors
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 22, "Filter_for_Errors", StartTime, Timer
+    StartTime = Timer
+'Save the reconciliation file, archive previous versions
+    Call Step_23_Main_Save_Recon_Archive_Old
+    Step_02_Secondary_Record_Execution_Time TimeToComplete, 23, "FN_Save_Recon", StartTime, Timer
     StartTime = Timer
 
-    Call X_FN_Formatting
-    RecordExecutionTime TimeToComplete, 18, "Formatting", StartTime, Timer
-    StartTime = Timer
-
-    Call Y_FN_Create_Exemption_Pivot
-    RecordExecutionTime TimeToComplete, 19, "Create_Exemption_Pivot", StartTime, Timer
-    StartTime = Timer
-
-    Call Z_FN_Lookup_Exemption_Reason
-    RecordExecutionTime TimeToComplete, 20, "Lookup_Exemption_Reason", StartTime, Timer
-    StartTime = Timer
-
-    Call ZA_FN_Format_Summary
-    RecordExecutionTime TimeToComplete, 21, "Format_Summary", StartTime, Timer
-    StartTime = Timer
-
-    Call ZB_FN_Format_Headers
-    RecordExecutionTime TimeToComplete, 22, "Format_Headers", StartTime, Timer
-    StartTime = Timer
-
-    Call ZD_Create_Index
-    RecordExecutionTime TimeToComplete, 23, "Create_Index", StartTime, Timer
-    StartTime = Timer
-
-If Round(Summary.Range("E4").Value, 2) <> Round(Summary.Range("G4").Value, 2) _
+    ' Finalize your main procedure
+    Application.ScreenUpdating = True
+    
+    If Round(Summary.Range("E4").Value, 2) <> Round(Summary.Range("G4").Value, 2) _
 Or Round(Summary.Range("E5").Value, 2) <> Round(Summary.Range("G5").Value, 2) _
 Or Round(Summary.Range("E6").Value, 2) <> Round(Summary.Range("G6").Value, 2) _
 Or Round(Summary.Range("E7").Value, 2) <> Round(Summary.Range("G7").Value, 2) Then
 MsgBox ("Completed Task but there are variances in the datasets.")
-
-
-Call FN_Filter_for_Errors
-    RecordExecutionTime TimeToComplete, 25, "Filter_for_Errors", StartTime, Timer
-    StartTime = Timer
-
 Else
     If User_Interface.Close_Query.Value = True Then
         Else
@@ -570,16 +607,33 @@ Else
         ActiveWorkbook.Close
     End If
 End If
-
-
-    Call ZC_FN_Save_Recon
-    RecordExecutionTime TimeToComplete, 26, "FN_Save_Recon", StartTime, Timer
-    StartTime = Timer
-
-    ' Finalize your main procedure
-    Application.ScreenUpdating = True
+    
 End Sub
 Sub Step_03_Main_CreateWorksheets()
+
+'The "Step_03_Main_CreateWorksheets" subroutine is responsible for creating and initializing various worksheets in the Excel workbook. Let's break down the steps performed in this subroutine:
+
+    '1.  Set Vertex as the active sheet: This line sets the "Vertex" sheet as the active sheet. It assumes that the code is running in a specific sheet, and "Vertex" is the intended active sheet.
+
+    '2. Set the name and freeze panes for the Vertex sheet: The name of the active sheet is set to "Vertex." The FreezePanes property is then used to freeze the top row (row 1) of the sheet to keep it visible when scrolling.
+
+    '3. Create a Summary worksheet: A new worksheet named "Summary" is created using the "Taxbook.Sheets.Add" method. It is placed before the "Vertex" sheet. The created worksheet is assigned to the "Summary" variable.
+
+    '4. Create a Sage AR Data worksheet: Similar to the previous step, a new worksheet named "Sage AR Data" is created and assigned to the "Sage" variable. The FreezePanes property is used to freeze the top row of the "Sage" sheet.
+
+    '5. Create a Sage Pivot worksheet: Another worksheet named "Sage Pivot" is created and assigned to the "Sage_Pivot" variable. The FreezePanes property is used to freeze the first six rows of the "Sage Pivot" sheet.
+
+    '6. Create a Vertex Pivot worksheet: A worksheet named "Vertex Pivot" is created and assigned to the "Vertex_Pivot" variable.
+
+    '7. Create an MKTPLCFAC worksheet: Another worksheet named "MKTPLCFAC" is created and assigned to the "Mktplc" variable. The FreezePanes property is used to freeze the first six rows of the "MKTPLCFAC" sheet.
+
+    '8. Create an Error Report worksheet: A worksheet named "Error Report" is created and assigned to the "Error_Report" variable.
+
+    '9. Create a Zipcodes worksheet: A worksheet named "Zipcodes" is created and assigned to the "ZipCode_Data" variable.
+
+    '10. Import Credit Report if checkbox is selected: If the "CheckBox1" control on the user form is checked (indicating the user wants to import a credit report), the code opens the specified file and imports it into a new worksheet named "Credit Report." The imported data is assumed to be in CSV format.
+
+'This subroutine effectively creates and initializes the necessary worksheets for the reconciliation process, including sheets for summary, data storage, pivot tables, error reporting, and additional data sources.
 
 Set Vertex = ActiveSheet
     On Error Resume Next
@@ -588,7 +642,6 @@ Set Vertex = ActiveSheet
     Vertex.Range("A2").Select
     ActiveWindow.FreezePanes = True
     
-
 'Create a Worksheet called Summary in order to store summarized information from the two data sets to display variances at a high-level
 Set Summary = Taxbook.Sheets.Add(Before:=Vertex)
 Summary.Name = "Summary"
@@ -596,7 +649,6 @@ Summary.Name = "Summary"
 'Create a Worksheet called Sage AR Data to hold and store Sage data for reconciliation
 Set Sage = Taxbook.Sheets.Add(Before:=Vertex)
     Sage.Name = "Sage AR Data"
-    
     Sage.Activate
     Sage.Range("A2").Select
     ActiveWindow.FreezePanes = True
@@ -611,7 +663,6 @@ Sage_Pivot.Name = "Sage Pivot"
 ' Create a Worksheet named Vertex Pivot to store various pivot tables with Vertex data in various views
 Set Vertex_Pivot = Taxbook.Sheets.Add
 Vertex_Pivot.Name = "Vertex Pivot"
-
 
 'Create a Worksheet named MKTPLCFAC to compare Marketplace Sales between Sage and Vertex
 Set Mktplc = Taxbook.Sheets.Add
@@ -648,7 +699,9 @@ End If
 
 End Sub
 
-Sub Y_FN_Create_Exemption_Pivot()
+Sub Step_19_Main_Create_Exemption_Pivot()
+
+
 Dim Exemption_Pivot As Worksheet
 Dim Exemption_Reason_Pivot_Cache As PivotCache
 Dim Exemption_Range As Range
@@ -661,32 +714,49 @@ Dim Exemp_VNTA As PivotField
 Dim Exemp_VEA As PivotField
 Dim Exemp_VGNA As PivotField
 Dim Exemption_Pivot_Sheet As Worksheet
+
+'Create Worksheet to Hold Data for Pivot Table
 Set Exemption_Pivot = Taxbook.Sheets.Add(After:=Taxbook.Sheets("Summary"))
+
+'Rename the Sheet to reference its purpose
 Exemption_Pivot.Name = "Exemption Pivot Data"
+
+'Copy Rows from Vertex_NonTax_Compare PivotTable
 Vertex_NonTax_Compare.Range("A" & Vertex_NonTax_Compare.Cells.Find("Trimmed Invoice No", After:=Vertex_NonTax_Compare.Range("A1")).row & ":T" & WorksheetFunction.CountA(Vertex_NonTax_Compare.Range("A:A")) + 1).Copy
+
+'Paste the Rows into the created datasheet
 Exemption_Pivot.Range("A1").PasteSpecial (xlPasteAll)
+
+'Set the Exemption_Range to be the used range of the datasheet
 Set Exemption_Range = Exemption_Pivot.UsedRange
+
+'Create a Sheet to store the pivot table on
 Set Exemption_Pivot_Sheet = Taxbook.Sheets.Add(After:=Taxbook.Sheets("Summary"))
-Exemption_Pivot_Sheet.Name = "Return Report"
+
+'Rename the Pivot Table Sheet to reflect its purpose
+Exemption_Pivot_Sheet.Name = "Exemptions Report"
 Exemption_Pivot_Sheet.UsedRange.Style = "Comma"
+
+'Create a Pivot Cache from the data
 Set Exemption_Reason_Pivot_Cache = Taxbook.PivotCaches.Create( _
     SourceType:=xlDatabase, _
     SourceData:=Exemption_Range)
+    
+'Create a Pivot Table from the created cache
 Set Exemption_Pivots = Exemption_Reason_Pivot_Cache.CreatePivotTable(TableDestination:=Exemption_Pivot_Sheet.Range("A1"), _
 TableName:="Exemption_Pivots")
+
+'Format the Pivot Table in tabular format
 Exemption_Pivots.RowAxisLayout xlTabularRow
-'Set County = Exemption_Pivots.PivotFields("County")
-'Set City = Exemption_Pivots.PivotFields("City")
+
+'Define Pivot Fields
 Set Exemp_VGA = Exemption_Pivots.PivotFields("Vertex_Gross_Amt")
 Set Exemp_VNTA = Exemption_Pivots.PivotFields("Vertex_Gross Nontaxable")
 Set Exemption_Reason = Exemption_Pivots.PivotFields("Exemption Reason")
+
 Exemption_Reason.Orientation = xlColumnField
-'County.Orientation = xlRowField
-'County.Subtotals(1) = True
-'County.Subtotals(1) = False
-'City.Orientation = xlRowField
-'City.Subtotals(1) = True
-'City.Subtotals(1) = False
+
+'Populate the Pivot Table and format
 Exemption_Reason.Orientation = xlRowField
 Exemption_Pivots.AddDataField Exemp_VGA, "Vertex Nontax or Exempt", xlSum
 Exemption_Pivots.RepeatAllLabels xlRepeatLabels
@@ -696,7 +766,7 @@ Exemption_Pivot_Sheet.UsedRange.Style = "Comma"
 Summary.Activate
 End Sub
 
-Sub ZC_FN_Save_Recon()
+Sub Step_23_Main_Save_Recon_Archive_Old()
 Dim fso As New FileSystemObject
 Dim Archive As New FileSystemObject
 Dim file As Variant
@@ -704,21 +774,25 @@ Dim FileDir As Object
 Dim LoopFile As Object
 Dim ParseString As String
 
+' Create a new instance of the FileSystemObject
 Set fso = CreateObject("Scripting.FileSystemObject")
 On Error Resume Next
+' Create the folder for the current year and reconciliation state
 fso.CreateFolder (DropboxDir & "Multi-State Sales Tax\Tax Jursidictions\" & ReconState & "\" & Format(EndDate, "YYYY"))
 SaveDir = DropboxDir & "Multi-State Sales Tax\Tax Jursidictions\" & ReconState & "\" & Format(EndDate, "YYYY") & "\" & Format(EndDate, "yyyy-mm")
 On Error Resume Next
-
+' Create the folder for the current reconciliation date
 fso.CreateFolder (SaveDir)
+' Create the filename for the current reconciliation
 FileName = Format(EndDate, "YYYY-MM-DD") & " " & ReconState & " Sales Tax Reconciliation " & Format(Now, "yyyy-mm-dd h mm ss AM/PM")
+' Save the workbook as the current reconciliation file
 Taxbook.SaveAs FileName:=SaveDir & "\" & FileName, FileFormat:=xlWorkbookDefault
 
+' Set up the Archive FileSystemObject
 Set Archive = CreateObject("Scripting.FileSystemObject")
 On Error Resume Next
+' Create the Archive folder for the current reconciliation date
 Archive.CreateFolder (SaveDir & "\Archive")
-
-
 
 Dim OldReconFile As String
 Dim ArchiveFile As String
@@ -727,31 +801,47 @@ Dim FileDateCreated
 Dim CurrentRecon As Workbook
 Dim NewReconDir As String
 
-
+' Set the current reconciliation workbook
 Set CurrentRecon = Taxbook
 NewReconDir = CurrentRecon.FullName
 
+' Set the paths for the old reconciliation file and its corresponding archive file
 OldReconFile = Dir("C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\" & ReconState & "\" & Format(StartDate, "YYYY") & "\" & Format(StartDate, "YYYY-MM") & "\" & Format(EndDate, "YYYY-MM-DD") & " " & ReconState & " Sales Tax Reconciliation*")
 ArchiveFile = "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\" & ReconState & "\" & Format(StartDate, "YYYY") & "\" & Format(StartDate, "YYYY-MM") & "\" & OldReconFile
 
+' Check if the current reconciliation file is the same as the archive file
 If NewReconDir = ArchiveFile Then
-
+    
 Else
-
-Set fs = CreateObject("Scripting.FileSystemObject")
-On Error Resume Next
-Set f = fs.GetFile(ArchiveFile)
-FileDateCreated = f.DateCreated
-Name ArchiveFile As "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\" & ReconState & "\" & Format(StartDate, "YYYY") & "\" & Format(StartDate, "YYYY-MM") & "\Archive\" & OldReconFile
-
-
+    ' Archive the previous reconciliation file
+    Set fs = CreateObject("Scripting.FileSystemObject")
+    On Error Resume Next
+    Set f = fs.GetFile(ArchiveFile)
+    FileDateCreated = f.DateCreated
+    Name ArchiveFile As "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\" & ReconState & "\" & Format(StartDate, "YYYY") & "\" & Format(StartDate, "YYYY-MM") & "\Archive\" & OldReconFile
 End If
 
-
 End Sub
+
    
 
 Public Sub Step_05_Main_Import_Sage_Data()
+
+'The "Step_05_Main_Import_Sage_Data" subroutine is the main entry point for importing Sage data into the worksheet. It calls several dependent subroutines to perform specific tasks. Here's a breakdown of the subroutines and their tasks:
+
+    'Step_05_Secondary_InformUser: This subroutine displays a pop-up message to inform the user that Excel will become temporarily unresponsive while retrieving data from Sage. It provides a message box with a timeout to automatically close after 10 seconds.
+
+    'Step_05_Secondary_BuildQuery: This subroutine determines whether to build a query for Sage or Quanda based on the user's selection in the User_Interface form. It calls the appropriate subfunction to build the query.
+
+    'Step_05_Secondary_Subfunction_BuildSageQuery: This subfunction builds the SQL query for Sage data. It constructs the query based on the specified reconciliation state, start date, and end date. If the reconciliation state is "All," it retrieves all data where the ShipToCountryCode is "US" or "USA." Otherwise, it includes additional conditions for the specified state.
+
+    'Step_05_Secondary_Subfunction_BuildQuandaQuery: This subfunction builds the SQL query for Quanda data. It follows a similar logic to the Sage query construction, considering the reconciliation state, start date, and end date.
+
+    'Step_05_Secondary_LoadData: This subroutine establishes a connection to the database using the connection string and executes the SQL query. It retrieves the data into an ADODB recordset and copies it to the Sage worksheet starting from cell A2. The field names are added as column headers in the first row. Finally, it closes the recordset and connection, autofits the columns, and calls the "Step_05_Secondary_Format_Columns" subroutine.
+
+    'Step_05_Secondary_Format_Columns: This subroutine formats the columns of the Sage worksheet. It iterates through each column and checks if the column name contains "date" or "Date." If so, it applies the "mm/dd/yyyy" number format to the entire column.
+
+'These subroutines work together to import Sage data into the worksheet and apply appropriate formatting. The data retrieval is handled through ADO (ActiveX Data Objects) and SQL queries, allowing efficient retrieval and processing of the data.
 
     ' Warn the user that querying the backend of sage will take some time
     Step_05_Secondary_InformUser
@@ -788,8 +878,15 @@ Private Sub Step_05_Secondary_Subfunction_BuildSageQuery()
     ConString = "DSN=SOTAMAS90; UID=cba; PWD=Huya7; Directory=\\fot00erp\Sage100_2020\MAS90; Prefix=\\fot00erp\Sage100_2020\MAS90\SY\, \\fot00erp\Sage100_2020\MAS90\==\; ViewDLL=\\fot00erp\Sage100_2020\MAS90\HOME; Company=fot; LogFile=\PVXODBC.LOG; CacheSize=4; DirtyReads=1; BurstMode=1; StripTrailingSpaces=1; SERVER=NotTheServer"
 
 If InStr(ReconState, "ALL") > 0 Then
-    SQL = "SELECT * FROM AR_InvoiceHistoryHeader WHERE (AR_InvoiceHistoryHeader.InvoiceDate >= {d '" & StartDate & "'}) AND (AR_InvoiceHistoryHeader.InvoiceDate <= {d '" & EndDate & "'}) AND (AR_InvoiceHistoryHeader.ShipToCountryCode ='US' OR AR_InvoiceHistoryHeader.ShipToCountryCode ='USA')"
+    SQL = "SELECT * FROM AR_InvoiceHistoryHeader WHERE " & _
+    "(AR_InvoiceHistoryHeader.InvoiceDate >= {d '" & StartDate & "'}) AND " & _
+    "(AR_InvoiceHistoryHeader.InvoiceDate <= {d '" & EndDate & "'}) AND " & _
+    "(AR_InvoiceHistoryHeader.ShipToCountryCode ='US' OR AR_InvoiceHistoryHeader.ShipToCountryCode ='USA') AND " & _
+    "((ShipToState <> 'OR' AND ShiptoState <> 'NH' AND ShipToState <> 'MT' AND ShipToState <> 'MO' AND ShipToState <> 'SD'  AND ShipToState <> 'AK' AND ShipToState <> 'VT' AND ShipToState <> 'DE' AND ShipToState <> 'WY' AND ShipToState <> 'FL') OR " & _
+    "(ShipToState = 'FL' AND TaxSchedule <> 'MKTPLCFAC'))"
 Else
+
+'AND (ShipToState <> 'OR' AND ShiptoState <> 'NH' AND ShipToState <> 'MT' AND ShipToState <> 'MO' AND ShipToState <> 'SD'  AND ShipToState <> 'AK' AND ShipToState <> 'VT')
 
 If ReconState = "FL" Or ReconState = "Fl" Then
 SQL = "SELECT * FROM AR_InvoiceHistoryHeader WHERE (AR_InvoiceHistoryHeader.InvoiceDate >= {d '" & StartDate & "'}) AND (AR_InvoiceHistoryHeader.InvoiceDate <= {d '" & EndDate & "'}) AND (AR_InvoiceHistoryHeader.ShipToCountryCode ='US' OR AR_InvoiceHistoryHeader.ShipToCountryCode ='USA') AND AR_InvoiceHistoryHeader.ShipToState ='" & ReconState & "' AND AR_InvoiceHistoryHeader.TaxSchedule<>'MKTPLCFAC'"
@@ -807,7 +904,13 @@ Private Sub Step_05_Secondary_Subfunction_BuildQuandaQuery()
 ConString = "DSN=Quanda;Description=Daily Replication of Sage data in SQL;Trusted_Connection=Yes;APP=Microsoft Office;DATABASE=Quanda;ApplicationIntent=READONLY;"
 
 If InStr(ReconState, "ALL") > 0 Then
-    SQL = "SELECT * FROM AR_InvoiceHistoryHeader WHERE (AR_InvoiceHistoryHeader.InvoiceDate BETWEEN '" & StartDate & "' AND '" & EndDate & "') AND (AR_InvoiceHistoryHeader.ShipToCountryCode ='US' OR AR_InvoiceHistoryHeader.ShipToCountryCode ='USA')"
+    SQL = "SELECT * FROM AR_InvoiceHistoryHeader WHERE " & _
+    "(AR_InvoiceHistoryHeader.InvoiceDate BETWEEN '" & StartDate & "' AND '" & EndDate & "') AND " & _
+    "(AR_InvoiceHistoryHeader.ShipToCountryCode ='US' OR AR_InvoiceHistoryHeader.ShipToCountryCode ='USA') AND " & _
+    "(ShipToState <> 'OR' AND ShiptoState <> 'NH' AND ShipToState <> 'MT' AND ShipToState <> 'MO' AND ShipToState <> 'SD'  AND ShipToState <> 'AK' AND ShipToState <> 'VT' AND ShipToState <> 'DE' AND ShipToState <> 'WY' AND ShipToState <> 'FL') OR " & _
+    "(ShipToState = 'FL' AND TaxSchedule <> 'MKTPLCFAC')"
+
+'AND (ShipToState <> 'OR' AND ShiptoState <> 'NH' AND ShipToState <> 'MT' AND ShipToState <> 'MO' AND ShipToState <> 'SD'  AND ShipToState <> 'AK' AND ShipToState <> 'VT')
 Else
 
 If ReconState = "FL" Or ReconState = "Fl" Then
@@ -823,27 +926,38 @@ End Sub
 
 Private Sub Step_05_Secondary_LoadData()
     Dim Conn As New ADODB.Connection
-    Dim Recset As ADODB.RecordSet
+    Dim Recset As New ADODB.Recordset
     Dim i As Long
 
     Conn.Open ConString
-    Set Recset = New ADODB.RecordSet
+    Set Recset = New ADODB.Recordset
     Recset.Open SQL, Conn
-    Sage.Cells(2, 1).CopyFromRecordset Recset
-
+    
     With Recset
-        For i = 1 To .Fields.Count
-            Sage.Cells(1, i).Value = Recset.Fields(i - 1).Name
-        Next i
+        If Not .EOF Then
+            ' Put field names into the first row of worksheet
+            For i = 1 To .Fields.Count
+                Sage.Cells(1, i).Value = .Fields(i - 1).Name
+            Next i
+            
+            ' Move to first record
+            .MoveFirst
+            
+            ' Copy the data to Excel
+            Sage.Cells(2, 1).CopyFromRecordset Recset
+        End If
     End With
+
     Recset.Close
     Conn.Close
     Sage.Columns.AutoFit
 
-    FormatColumns
+    Step_05_Secondary_Format_Columns
 End Sub
 
-Private Sub FormatColumns()
+
+
+Private Sub Step_05_Secondary_Format_Columns()
     Dim i As Long
     For i = 1 To WorksheetFunction.CountA(Sage.Range("1:1"))
         If InStr(Sage.Cells(1, i).Value, "date") Or InStr(Sage.Cells(1, i).Value, "Date") Then
@@ -853,79 +967,91 @@ Private Sub FormatColumns()
 End Sub
 
 Sub Step_07_Main_Convert_Invoice_Numbers()
-
     Dim i As Long
     Dim JurTypeDict As Object
     Dim Loop_JurType As Range
 
     ' Add "Trimmed Invoice No" column to Vertex and populate it
     With Vertex
+
         V_Last_Col = .Cells(1, .Columns.Count).End(xlToLeft).Column
-        V_Last_Row = .Cells(.Rows.Count, WorksheetFunction.Match("Transaction ID", .Range("1:1"), 0)).End(xlUp).row
+        V_Last_Row = .Cells(.Rows.Count, .Cells.Find("Transaction ID").Column).End(xlUp).row
         .Cells(1, V_Last_Col + 1).Value = "Trimmed Invoice No"
-        
-        ' Populate "Trimmed Invoice No" by taking right 6 digits of "Document Number"
-        For i = 2 To V_Last_Row
-            .Cells(i, V_Last_Col + 1).Value = Right(Left(.Cells(i, .Cells.Find("Document Number").Column), 7), 6)
+
+        Dim invoiceNumbers As Variant
+        invoiceNumbers = .Range(.Cells(2, .Cells.Find("Document Number").Column), .Cells(V_Last_Row, .Cells.Find("Document Number").Column)).Value
+
+        For i = 1 To V_Last_Row - 1
+            invoiceNumbers(i, 1) = Right(Left(invoiceNumbers(i, 1), 7), 6)
         Next i
-        
+        .Cells(2, V_Last_Col + 1).Resize(V_Last_Row - 1, 1).Value = invoiceNumbers
         .Columns.AutoFit
     End With
 
     ' Add "Trimmed Invoice No" column to Sage and populate it
     With Sage
-        S_Last_Row = .Cells(.Rows.Count, WorksheetFunction.Match("InvoiceNo", .Range("1:1"), 0)).End(xlUp).row
+
+        S_Last_Row = .Cells(.Rows.Count, .Cells.Find("InvoiceNo").Column).End(xlUp).row
         S_Last_Col = .Cells(1, .Columns.Count).End(xlToLeft).Column
         .Cells(1, S_Last_Col + 1).Value = "Trimmed Invoice No"
-        
-        ' Populate "Trimmed Invoice No" by taking right 6 digits of "InvoiceNo"
-        For i = 2 To S_Last_Row
-            .Cells(i, S_Last_Col + 1).Value = Right(.Cells(i, 1).Value, 6)
+
+       
+        invoiceNumbers = .Range(.Cells(2, 1), .Cells(S_Last_Row, 1)).Value
+
+        For i = 1 To S_Last_Row - 1
+            invoiceNumbers(i, 1) = Right(invoiceNumbers(i, 1), 6)
         Next i
+
+        .Cells(2, S_Last_Col + 1).Resize(S_Last_Row - 1, 1).Value = invoiceNumbers
     End With
 
     ' Calculate Total Tax Amount for each invoice if required
     If User_Interface.Toggle_SalesTax_In_Gross.Value = True Then
         Vertex.Cells(1, V_Last_Col + 2).Value = "Total Tax Amount"
-        
+
         ' Create a dictionary for unique Jurisdiction Types
         Set JurTypeDict = CreateObject("Scripting.Dictionary")
-        
+
         For Each Loop_JurType In Vertex.Range(Vertex.Cells(1, Vertex.Cells.Find("Jurisdiction Type").Column), Vertex.Cells(V_Last_Row, Vertex.Cells.Find("Jurisdiction Type").Column))
             If Not JurTypeDict.Exists(Loop_JurType.Value) Then
                 JurTypeDict.Add Loop_JurType.Value, Loop_JurType.Value
             End If
         Next Loop_JurType
-        
-        ' Calculate Total Tax Amount for each invoice based on Jurisdiction Type
-    For i = 2 To V_Last_Row
-        Dim taxAmountSum As Double
-        Dim jurisdictionTypeCount As Long
-        
-        ' Calculate the sum of Tax Amounts
-        taxAmountSum = WorksheetFunction.SumIfs( _
-            Vertex.Range(Vertex.Cells(1, Vertex.Cells.Find("Tax Amount").Column), Vertex.Cells(V_Last_Row, Vertex.Cells.Find("Tax Amount").Column)), _
-            Vertex.Range(Vertex.Cells(1, Vertex.Cells.Find("Trimmed Invoice No").Column), Vertex.Cells(V_Last_Row, Vertex.Cells.Find("Trimmed Invoice No").Column)), _
-            Vertex.Cells(i, V_Last_Col + 1).Value)
-        
-        ' Calculate the count of Jurisdiction Types
-        jurisdictionTypeCount = WorksheetFunction.CountIfs( _
-            Vertex.Range(Vertex.Cells(1, Vertex.Cells.Find("Jurisdiction Type").Column), Vertex.Cells(V_Last_Row, Vertex.Cells.Find("Jurisdiction Type").Column)), _
-            Vertex.Cells(i, Vertex.Cells.Find("Jurisdiction Type").Column), _
-            Vertex.Range(Vertex.Cells(1, Vertex.Cells.Find("Trimmed Invoice No").Column), Vertex.Cells(V_Last_Row, Vertex.Cells.Find("Trimmed Invoice No").Column)), _
-            Vertex.Cells(i, V_Last_Col + 1))
-        
-        ' Calculate the Total Tax Amount
-        Vertex.Cells(i, V_Last_Col + 2).Value = Round(taxAmountSum, 2)
-    Next i
-    
-End If
 
+        ' Calculate Total Tax Amount for each invoice based on Jurisdiction Type
+        For i = 2 To V_Last_Row
+            Dim taxAmountSum As Double
+            Dim jurisdictionTypeCount As Long
+
+            ' Calculate the sum of Tax Amounts
+            taxAmountSum = WorksheetFunction.SumIfs( _
+                Vertex.Range(Vertex.Cells(1, Vertex.Cells.Find("Tax Amount").Column), Vertex.Cells(V_Last_Row, Vertex.Cells.Find("Tax Amount").Column)), _
+                Vertex.Range(Vertex.Cells(1, Vertex.Cells.Find("Trimmed Invoice No").Column), Vertex.Cells(V_Last_Row, Vertex.Cells.Find("Trimmed Invoice No").Column)), _
+                Vertex.Cells(i, V_Last_Col + 1).Value)
+
+            ' Calculate the count of Jurisdiction Types
+            jurisdictionTypeCount = WorksheetFunction.CountIfs( _
+                Vertex.Range(Vertex.Cells(1, Vertex.Cells.Find("Jurisdiction Type").Column), Vertex.Cells(V_Last_Row, Vertex.Cells.Find("Jurisdiction Type").Column)), _
+                Vertex.Cells(i, Vertex.Cells.Find("Jurisdiction Type").Column), _
+                Vertex.Range(Vertex.Cells(1, Vertex.Cells.Find("Trimmed Invoice No").Column), Vertex.Cells(V_Last_Row, Vertex.Cells.Find("Trimmed Invoice No").Column)), _
+                Vertex.Cells(i, V_Last_Col + 1))
+
+            ' Calculate the Total Tax Amount
+            Vertex.Cells(i, V_Last_Col + 2).Value = Round(taxAmountSum, 2)
+        Next i
+    End If
 End Sub
 
+
 Sub Step_08_Main_Prepare_Data_For_Pivots()
-    ' This subroutine prepares data for creating pivot tables by setting up PivotCaches for Sage and Vertex data.
-    
+
+' This subroutine prepares the data for creating pivot tables. It sets up the necessary ranges for Vertex and Sage data and creates PivotCaches for these data sets.
+' The range for Vertex data is determined by the cells from the first cell to the last cell in the Vertex worksheet.
+' The range for Sage data is determined by the cells from the first cell to the last cell in the Sage worksheet.
+' A PivotCache is created for Sage data using the Sage data range.
+' If the sales tax is included in the Gross, an extra column for Total Tax Amount is added to the Vertex data range, and a PivotCache is created for Vertex data using the updated range.
+' The prepared PivotCaches can be used later to create PivotTables for data analysis and reporting.
+  
     ' Set the ranges for Vertex and Sage data
     Set V_Pivot = Range(Vertex.Cells(1, 1), Vertex.Cells(V_Last_Row, V_Last_Col + 1))
     Set S_Pivot = Range(Sage.Cells(1, 1), Sage.Cells(S_Last_Row, S_Last_Col + 1))
@@ -948,7 +1074,7 @@ Sub Step_08_Main_Prepare_Data_For_Pivots()
 End Sub
 
 
-Sub Step_13_FN_Create_Sage_Pivot()
+Sub Step_13_Main_Create_Sage_Pivot()
 
 Dim DestRange As Range
 
@@ -1210,6 +1336,16 @@ End If
 End Sub
 
 Sub Step_11_Main_Create_Vertex_Gross_Pivots()
+    ' Creates multiple Pivot Tables to compare and analyze Vertex sales data at the state level.
+    ' If Sales Tax is included in the gross sales figures, it creates two pivot tables:
+    '   - The first pivot table summarizes the Vertex sales data, filtering by state and including tax amounts in the gross sales.
+    '   - The second pivot table compares gross sales figures between datasets, filtering by state and including tax amounts.
+    ' If Sales Tax is not included in the gross sales figures, it creates a single pivot table:
+    '   - The pivot table summarizes the Vertex sales data, filtering by state and excluding tax amounts from the gross sales.
+    ' The subroutine defines various pivot fields, including Imposition Type, Jurisdiction Type, Flex Code, Product Class Code, and more.
+    ' It adds calculated fields to calculate gross nontaxable amounts and performs filtering based on specific criteria.
+    ' Ranges are defined for later data comparison and reference.
+    ' This subroutine is part of a larger code that analyzes and compares sales data for reporting purposes.
 
  Dim Loopitem2 As PivotItem
  Dim VGP_TaxExempt As PivotField
@@ -1472,7 +1608,7 @@ Vertex_NonTaxable_Pivot.PivotSelect "Vertex_Taxable_Amt", xlDataAndLabel
 Set Lookup_Vertex_Exempt_Taxable = Selection
 Vertex_NonTaxable_Pivot.PivotSelect "Vertex_Gross Nontaxable", xlDataAndLabel
 Set Lookup_Vertex_Exempt_Exempt = Selection
-Vertex_NonTaxable_Pivot.PivotFields("Trimmed Invoice No").DataRange.Select
+Vertex_NonTaxable_Pivot.PivotFields("Trimmed Invoice No").dataRange.Select
 Selection.Offset(Rowoffset:=-1).Select
 Selection.Resize(RowSize:=WorksheetFunction.CountA(Selection) + 2).Select
 Set Lookup_Vertex_Exempt_InvoiceNo = Selection
@@ -1759,7 +1895,7 @@ Else ' If Sales Tax Is Not included in Gross Sales then:
     Set Lookup_Vertex_Exempt_Taxable = Selection
     Vertex_NonTaxable_Pivot.PivotSelect "Vertex_Gross Nontaxable", xlDataAndLabel
     Set Lookup_Vertex_Exempt_Exempt = Selection
-    Vertex_NonTaxable_Pivot.PivotFields("Trimmed Invoice No").DataRange.Select
+    Vertex_NonTaxable_Pivot.PivotFields("Trimmed Invoice No").dataRange.Select
     Selection.Offset(Rowoffset:=-1).Select
     Selection.Resize(RowSize:=WorksheetFunction.CountA(Selection) + 2).Select
     Set Lookup_Vertex_Exempt_InvoiceNo = Selection
@@ -1768,19 +1904,46 @@ End If
 
 Sub Step_10_Main_Create_Vertex_Freight_Sales_Pivot()
 
-'Creates a Pivot Table of Vertex Freight Sales on Sheet "Vertex Pivot". Part of the original code, additional vertex tables have since been added.
+' Description: This subroutine creates multiple Pivot Tables to compare and analyze Vertex sales data at the state level.
+'              Depending on whether sales tax is included in the gross sales figures or not, different pivot tables are created.
+'              If sales tax is included, two pivot tables are created: one summarizes the Vertex sales data including tax amounts,
+'              and the other compares gross sales figures between datasets including tax amounts. If sales tax is not included,
+'              a single pivot table is created summarizing the Vertex sales data excluding tax amounts.
+'              Various pivot fields are defined, such as Imposition Type, Jurisdiction Type, Flex Code, Product Class Code, and more.
+'              Calculated fields are added to calculate gross nontaxable amounts, and specific filtering is performed based on criteria.
+'              Ranges are defined for later data comparison and reference. This subroutine is part of a larger code that analyzes
+'              and compares sales data for reporting purposes.
+'
+' Inputs: None
+'
+' Outputs:
+'   - Vertex_Pivot: Pivot table summarizing Vertex sales data with or without tax amounts
+'   - Vertex_Gross_Pivot: Pivot table comparing gross sales figures between datasets with tax amounts included
+'   - Vertex_NonTaxable_Pivot: Pivot table summarizing Vertex nontaxable sales data excluding tax amounts
+'   - Lookup_Vertex_Gross_Gross: Data range of the "Vertex Gross Sales" column in the Vertex_Pivot table
+'   - Lookup_Vertex_Gross_Taxable: Data range of the "Vertex Taxable Sale" column in the Vertex_Pivot table
+'   - Lookup_Vertex_Gross_Exempt: Data range of the "Vertex Exempt Sales" column in the Vertex_Pivot table
+'   - Lookup_Vertex_Gross_InvoiceNo: Row range of the Vertex_Pivot table
+'   - Lookup_Vertex_GrossComp_Gross: Data range of the "Vertex_Gross_Amt" column in the Vertex_Gross_Pivot table
+'   - Lookup_Vertex_GrossComp_Taxable: Data range of the "Vertex_Taxable_Amt" column in the Vertex_Gross_Pivot table
+'   - Lookup_Vertex_GrossComp_Exempt: Data range of the "Vertex Exempt Amount" column in the Vertex_Gross_Pivot table
+'   - Lookup_Vertex_GrossComp_InvoiceNo: Row range of the Vertex_Gross_Pivot table
+'   - Lookup_Vertex_Exempt_Gross: Data range of the "Vertex_Gross_Amt" column in the Vertex_NonTaxable_Pivot table
+'   - Lookup_Vertex_Exempt_Taxable: Data range of the "Vertex_Taxable_Amt" column in the Vertex_NonTaxable_Pivot table
+'   - Lookup_Vertex_Exempt_Exempt: Data range of the "Vertex_Gross Nontaxable" column in the Vertex_NonTaxable_Pivot table
+'   - Lookup_Vertex_Exempt_InvoiceNo: Row range of the Vertex_NonTaxable_Pivot table
+'
+' Note: Make sure to check and set up all necessary dependencies before running this code.
 
-' Declare variables
+'Declare variables
 Dim VFS_TaxExempt As PivotField
 
 'Create the PivotTable from the Vertex Data Cache
-
 Set Vertex_Freight_Sales = Vertex_Data_Cache.CreatePivotTable( _
     TableDestination:=Vertex_Pivot.Range("N5"), _
     TableName:="Vertex_Freight_Sales_Data")
   
 ' Set PivotFields
-
 Set VFS_InvoiceNo = Vertex_Freight_Sales.PivotFields("Trimmed Invoice No")
 Set VFS_Product_Class_Code = Vertex_Freight_Sales.PivotFields("Product Class Code")
 Set VFS_Tax_Amount = Vertex_Freight_Sales.PivotFields("Tax Amount")
@@ -1797,7 +1960,6 @@ Set VFS_ImpositionType = Vertex_Freight_Sales.PivotFields("Imposition Type")
 Set VFS_TaxExempt = Vertex_Freight_Sales.CalculatedFields.Add("Gross Nontaxable(Freight Only)", "='Exempt Amount'+ 'Non-Taxable Amount'")
 
 ' Set orientations of the fields
-
 VFS_InvoiceNo.Orientation = xlRowField
 VFS_Product_Class_Code.Orientation = xlPageField
 VFS_Flexcode05.Orientation = xlPageField
@@ -1883,7 +2045,29 @@ Set Lookup_Vertex_Freight_Sales_InvoiceNo = Selection
 End Sub
 
 
-Sub Step_12_Create_Vertex_Tax_Pivot()
+Sub Step_12_Main_Create_Vertex_Tax_Pivot()
+
+' Description: This subroutine creates pivot tables for vertex tax data, specifically for Colorado (CO) home rule jurisdictions
+'              and non-home rule jurisdictions. If the recon state is CO, it imports a CO administered city list, sets up the
+'              home rule city data, and creates a pivot table for home rule city tax. If the recon state is not CO, it creates
+'              a pivot table for vertex tax per document number on the "Vertex Pivot" sheet. The code also filters and selects
+'              specific data ranges within the pivot tables for further processing.
+'
+' Inputs:
+'   - ReconState: State code used to determine if additional processing for CO home rule tax is needed
+'   - Datafile: Directory location of the CO Administered City Tax File, used to import CO city data
+'   - HRLookup: Worksheet that holds the names of cities where CO collects tax for the city
+'   - CopyFromSheet: Worksheet within the Home Rule City Data File that contains the data to be copied
+'   - CopyToBook: Workbook where the home rule city list will be copied
+'   - HomeRuleList: Workbook that stores the home rule city data
+'
+' Outputs:
+'   - Vertex_Tax_COHR: Pivot table for vertex tax data in CO home rule jurisdictions
+'   - Vertex_Tax: Pivot table for vertex tax data in non-home rule jurisdictions
+'   - Lookup_Vertex_Tax_Tax: Data range of the "Vertex Gross Tax" column in the Vertex Tax pivot table
+'   - Lookup_Vertex_Tax_InvoiceNo: Row range of the Vertex Tax pivot table
+'
+' Note: Make sure to check and set up all necessary dependencies before running this code.
 
     ' If the recon state is Colorado, an additional process of determining the
     ' home rule tax is needed
@@ -2014,7 +2198,7 @@ Set Lookup_Vertex_Tax_InvoiceNo = Selection
 
 End Sub
 
-Sub Step_14_Create_Mktplc_Sage_Pivot()
+Sub Step_14_Main_Create_Mktplc_Sage_Pivot()
 
 'Define Variables
 Dim Mktplc_LC As Long
@@ -2115,7 +2299,8 @@ M_TaxSch_PF.EnableMultiplePageItems = True
 
 'Filter the Pivot table for marketplace facilitated transactions
 For Each Loopitem5 In M_TaxSch_PF.PivotItems
-    If Loopitem5 <> "MKTPLCFAC" Then
+    If Loopitem5.Name <> "MKTPLCFAC" Then
+    On Error Resume Next
     Loopitem5.Visible = False
 End If
 Next Loopitem5
@@ -3061,7 +3246,8 @@ Error_1:
         Error_Report.Range("I" & i).Value = "=xlookup(A" & i & ",'Sage AR Data'!" & Lookuplocation & ",'Sage AR Data'!$AP:$AP," & Chr(34) & "ERROR" & Chr(34) & ",0)"
         Error_Report.Range("J" & i).Value = "=xlookup(A" & i & ",'Sage AR Data'!" & Lookuplocation & ",'Sage AR Data'!$AM:$AM," & Chr(34) & "ERROR" & Chr(34) & ",0)"
         Error_Report.Range("K" & i).Value = "=xlookup(A" & i & ",'Sage AR Data'!" & Lookuplocation & ",'Sage AR Data'!AN:$AN," & Chr(34) & "ERROR" & Chr(34) & ",0)"
-        Error_Report.Range("L" & i).Value = "=xlookup(A" & i & ",'Sage AR Data'!" & Lookuplocation & ",'Sage AR Data'!AO:$AO," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+        
+ Error_Report.Range("L" & i).Value = "=xlookup(A" & i & ",'Sage AR Data'!" & Lookuplocation & ",'Sage AR Data'!AO:$AO," & Chr(34) & "ERROR" & Chr(34) & ",0)"
         Error_Report.Range("M" & i).Value = "=xlookup(C" & i & ",'Exemption Report'!B:B" & ",'Exemption Report'!F:F," & Chr(34) & "ERROR" & Chr(34) & ",0)"
         
                    Set LinkCell = Error_Report.Range("N" & i)
@@ -3136,7 +3322,7 @@ Error_1:
             
             
  If MatchString = "1" Then
-Error_Report.Range("AC" & i).Value = "Sage did not have this transaction within its database indicating that the shiptostate or country code on the sage transaction is incorrect. Check the Sage transaction for address validation erros."
+Error_Report.Range("AD" & i).Value = "Sage did not have this transaction within its database indicating that the shiptostate or country code on the sage transaction is incorrect. Check the Sage transaction for address validation erros."
 End If
             
        
@@ -3295,9 +3481,10 @@ VertexCutRange.Cut
 VertexPasteRange.Insert xlShiftToRight
 
 'Delete Extra Vertex Column
+On Error Resume Next
 Set VertexCutRange = Error_Report.Range(Error_Report.Cells(HeaderRow.row, _
-WorksheetFunction.Match("Vertex_Tax_Amt", HeaderRow, 0)) _
-, Error_Report.Cells(VertexEnd, WorksheetFunction.Match("Vertex_Tax_Amt", HeaderRow, 0)))
+WorksheetFunction.Match("Vertex Tax", HeaderRow, 0)) _
+, Error_Report.Cells(VertexEnd, WorksheetFunction.Match("Vertex Tax", HeaderRow, 0)))
 
 VertexCutRange.Delete xlShiftToLeft
 
@@ -3308,7 +3495,7 @@ WorksheetFunction.Match("NonTaxable Sales Variance", HeaderRow, 0)) _
 
 'Define Paste Range
 Set VertexPasteRange = Error_Report.Range(Error_Report.Cells(HeaderRow.row, _
-WorksheetFunction.Match("Vertex Freight", HeaderRow, 0)) _
+WorksheetFunction.Match("Vertex_Tax_Amt", HeaderRow, 0)) _
 , Error_Report.Cells(VertexEnd, WorksheetFunction.Match("Vertex Freight", HeaderRow, 0)))
 
 'Move Column
@@ -3328,6 +3515,22 @@ WorksheetFunction.Match("Vertex Tax", HeaderRow, 0)) _
 'Move Column
 VertexCutRange.Cut
 VertexPasteRange.Insert xlShiftToRight
+
+'Define Cut Range
+Set VertexCutRange = Error_Report.Range(Error_Report.Cells(HeaderRow.row, _
+WorksheetFunction.Match("Vertex Freight", HeaderRow, 0)) _
+, Error_Report.Cells(VertexEnd, WorksheetFunction.Match("Freight Variance", HeaderRow, 0)))
+
+'Define Paste Range
+Set VertexPasteRange = Error_Report.Range(Error_Report.Cells(HeaderRow.row, _
+WorksheetFunction.Match("Freight Variance", HeaderRow, 0)) _
+, Error_Report.Cells(VertexEnd, WorksheetFunction.Match("Vertex Tax", HeaderRow, 0)))
+
+'Move Column
+VertexCutRange.Cut
+VertexPasteRange.Insert xlShiftToRight
+
+
 
 End Sub
 Sub Step_16_Secondary_4_Setup_Sage_Headers()
@@ -3435,11 +3638,11 @@ VertexCompareStart = Error_Report.Cells(Rows.Count, 1).End(xlUp).row + 1
 'Loop Through Vertex Gtoww Sheet looking at variances
 For X = Vertex_Gross_Sheet.Cells.Find("Vertex_Gross_Amt", After:=Vertex_Gross_Sheet.Range("A1")).row + 1 To Vertex_Pivot_LR
 
-    If Vertex_Gross_Sheet.Range(Split(Cells(1, Vertex_Gross_Sheet.Cells.Find("Gross Sales Variance").Column).Address, "$")(1) & X).Value <> 0 _
-    Or Vertex_Gross_Sheet.Range(Split(Cells(1, Vertex_Gross_Sheet.Cells.Find("Taxable Sales Variance").Column).Address, "$")(1) & X).Value <> 0 _
-    Or Vertex_Gross_Sheet.Range(Split(Cells(1, Vertex_Gross_Sheet.Cells.Find("NonTaxable Sales Variance").Column).Address, "$")(1) & X).Value <> 0 _
-    Or Vertex_Gross_Sheet.Range(Split(Cells(1, Vertex_Gross_Sheet.Cells.Find("Freight Variance").Column).Address, "$")(1) & X).Value <> 0 _
-    Or Vertex_Gross_Sheet.Range(Split(Cells(1, Vertex_Gross_Sheet.Cells.Find("Tax Variance").Column).Address, "$")(1) & X).Value <> 0 Then
+    If WorksheetFunction.Round(Vertex_Gross_Sheet.Range(Split(Cells(1, Vertex_Gross_Sheet.Cells.Find("Gross Sales Variance").Column).Address(external:=True), "$")(1) & X).Value, 2) <> 0 _
+    Or WorksheetFunction.Round(Vertex_Gross_Sheet.Range(Split(Cells(1, Vertex_Gross_Sheet.Cells.Find("Taxable Sales Variance").Column).Address(external:=True), "$")(1) & X).Value, 2) <> 0 _
+    Or WorksheetFunction.Round(Vertex_Gross_Sheet.Range(Split(Cells(1, Vertex_Gross_Sheet.Cells.Find("NonTaxable Sales Variance").Column).Address(external:=True), "$")(1) & X).Value, 2) <> 0 _
+    Or WorksheetFunction.Round(Vertex_Gross_Sheet.Range(Split(Cells(1, Vertex_Gross_Sheet.Cells.Find("Freight Variance").Column).Address(external:=True), "$")(1) & X).Value, 2) <> 0 _
+    Or WorksheetFunction.Round(Vertex_Gross_Sheet.Range(Split(Cells(1, Vertex_Gross_Sheet.Cells.Find("Tax Variance").Column).Address(external:=True), "$")(1) & X).Value, 2) <> 0 Then
     Counter = WorksheetFunction.CountA(Error_Report.Range("A:A")) + 4
         Vertex_Gross_Sheet.Range("A" & X & ":P" & X).Copy Destination:=Error_Report.Range("A" & Counter)
         Vertex_Gross_Sheet.Range("A" & X & ":P" & X).Style = "Bad"
@@ -3519,7 +3722,7 @@ MarketplaceStart = Cells(Rows.Count, 1).End(xlUp).row + 1
 
 For i = Mktplc.Cells.Find("Sage Gross Mkplc Sales", After:=Mktplc.Range("A1")).row + 1 To Mktplc_LR - 1
     
-        If Mktplc.Range("H" & i).Value <> 0 Or Mktplc.Range("J" & i).Value <> 0 Or Mktplc.Range("L" & i).Value <> 0 Or Mktplc.Range("N" & i).Value <> 0 Or Mktplc.Range("P" & i).Value <> 0 Then
+        If WorksheetFunction.Round(Mktplc.Range("H" & i).Value, 2) <> 0 Or WorksheetFunction.Round(Mktplc.Range("J" & i).Value, 2) <> 0 Or Round(Mktplc.Range("L" & i).Value, 2) <> 0 Or Round(Mktplc.Range("N" & i).Value, 2) <> 0 Or Round(Mktplc.Range("P" & i).Value, 2) <> 0 Then
         Counter = WorksheetFunction.CountA(Error_Report.Range("A:A")) + 3
         Mktplc.Range("A" & i & ":P" & i).Copy Destination:=Error_Report.Range("A" & Counter)
         Mktplc.Range("A" & i & ":P" & i).Style = "Bad"
@@ -3629,11 +3832,11 @@ For i = Sage_Pivot.Cells.Find("Sage Gross Sales", Sage_Pivot.Range("A1")).row + 
 
 'Check to see if There is a sales variance on a gross sales basis, taxable sales variance, non-taxable sales variance, a freight variance, or a tax variance
 
-    If Round(Sage_Pivot.Range("H" & i).Value, 2) <> 0 _
-        Or Round(Sage_Pivot.Range("J" & i).Value, 2) <> 0 _
-            Or Round(Sage_Pivot.Range("L" & i).Value, 2) <> 0 _
-                Or Round(Sage_Pivot.Range("N" & i).Value, 2) <> 0 _
-                    Or Round(Sage_Pivot.Range("P" & i).Value, 2) <> 0 Then
+    If WorksheetFunction.Round(Sage_Pivot.Range("H" & i).Value, 2) <> 0 _
+        Or WorksheetFunction.Round(Sage_Pivot.Range("J" & i).Value, 2) <> 0 _
+            Or WorksheetFunction.Round(Sage_Pivot.Range("L" & i).Value, 2) <> 0 _
+                Or WorksheetFunction.Round(Sage_Pivot.Range("N" & i).Value, 2) <> 0 _
+                    Or WorksheetFunction.Round(Sage_Pivot.Range("P" & i).Value, 2) <> 0 Then
                     
 'If there is a variance then
   'Determine the last row written to in the error report range:
@@ -3659,63 +3862,16 @@ Mktplc_LR = Mktplc.Cells.Find("Grand Total", Mktplc.Range("A1")).row
 Counter = SageEnd + 1
 End Sub
 
-Sub T_FN_Compare_Sage_To_Vertex_Mktplcfac()
-
-Application.Calculation = xlCalculationManual
-Mktplc.Range("F" & Mktplc_HR + 1).Value = "Taxable Freight"
-Mktplc.Range("G" & Mktplc_HR + 1).Value = "Non-Taxable Freight"
-Mktplc.Range("H" & Mktplc_HR + 1).Value = "Vertex Taxable Sales Excluding Freight"
-Mktplc.Range("I" & Mktplc_HR + 1).Value = "Vertex Non-Taxable Sales Excluding Freight"
-Mktplc.Range("J" & Mktplc_HR + 1).Value = "Taxable Sales Variance"
-Mktplc.Range("K" & Mktplc_HR + 1).Value = "Non-Taxable Sales Variance"
-Mktplc.Range("L" & Mktplc_HR + 1).Value = "Vertex Tax"
-Mktplc.Range("M" & Mktplc_HR + 1).Value = "Vertex Tax Variance"
-
-For X = 7 To Mktplc_LR
-Counter = WorksheetFunction.CountA(Error_Report.Range("A:A")) + 1
-
-MktplcLookupFreight = "ROUND(IFERROR(VLOOKUP(A" & X & ",MKTPLCFAC!$A$6:$E$" & Mktplc_LR & ",4,0),0),2)"
-MktplcLookupTax = "ROUND(IFERROR(VLOOKUP(A" & X & ",'Vertex Pivot'!$I$6:$J$" & Vertex_Tax_Last_Row & ",2,0),0),2)"
-FreightLookupTax = "ROUND(IFERROR(VLOOKUP(A" & X & ",'Vertex Pivot'!$N$6:$R$" & Vertex_Freight_Sales_Last_Row & ",3,0),0),2)"
-FreightLookupNonTax = "ROUND(IFERROR(VLOOKUP(A" & X & ",'Vertex Pivot'!$N$6:$R$" & Vertex_Freight_Sales_Last_Row & ",4,0),0),2)"
-FreightLookupExemptTax = "ROUND(IFERROR(VLOOKUP(A" & X & ",'Vertex Pivot'!$N$6:$R$" & Vertex_Freight_Sales_Last_Row & ",5,0),0),2)"
-VertexTaxSales = "ROUND(IFERROR(VLOOKUP(A" & X & ",'Vertex Pivot'!$A$6:$E$" & Vertex_Sales_Last_Row & ",3,0),0),2)"
-VertexNoNTaxSales = "ROUND(IFERROR(VLOOKUP(A" & X & ",'Vertex Pivot'!$A$6:$E$" & Vertex_Sales_Last_Row & ",4,0),0)+IFERROR(VLOOKUP(A" & X & ",'Vertex Pivot'!$A$6:$E$" & Vertex_Sales_Last_Row & ",5,0),0),2)"
-
-Mktplc.Range("F" & X).Value = "=" & FreightLookupTax
-Mktplc.Range("G" & X).Value = "=" & FreightLookupNonTax & "+" & FreightLookupExemptTax & "+" & MktplcLookupFreight
-Mktplc.Range("H" & X).Value = "=" & VertexTaxSales & "-" & "F" & X
-On Error Resume Next
-Mktplc.Range("I" & X).Value = WorksheetFunction.VLookup(Mktplc.Range("A" & X).Value, Vertex_Nontax_Exclude_Freight.TableRange2, 4, 0)
-Mktplc.Range("J" & X).Formula = "=ROUND(H" & X & "-" & "B" & X & ",2)"
-Mktplc.Range("K" & X).Formula = "=ROUND(I" & X & "-" & "C" & X & ",2)"
-Mktplc.Range("L" & X).Value = "=" & MktplcLookupTax
-Mktplc.Range("M" & X).Value = "=ROUND(E" & X & "-" & "L" & X & ",2)"
-Mktplc.Columns.AutoFit
-
-Next X
-
-Mktplc.Range("F" & Mktplc_LR + 1).Value = "=ROUND(SUM(F" & Mktplc_HR & ":F" & Mktplc_LR & "),2)"
-Mktplc.Range("G" & Mktplc_LR + 1).Value = "=ROUND(SUM(G" & Mktplc_HR & ":G" & Mktplc_LR & "),2)"
-Mktplc.Range("H" & Mktplc_LR + 1).Value = "=ROUND(SUM(H" & Mktplc_HR & ":H" & Mktplc_LR & "),2)"
-Mktplc.Range("I" & Mktplc_LR + 1).Value = "=ROUND(SUM(I" & Mktplc_HR & ":I" & Mktplc_LR & "),2)"
-Mktplc.Range("J" & Mktplc_LR + 1).Value = "=ROUND(SUM(J" & Mktplc_HR & ":J" & Mktplc_LR & "),2)"
-Mktplc.Range("K" & Mktplc_LR + 1).Value = "=ROUND(SUM(K" & Mktplc_HR & ":K" & Mktplc_LR & "),2)"
-
-Application.Calculation = xlAutomatic
-
-End Sub
 Sub Step_17_Main_Setup_Summary_Sheet()
 Dim LinkRow As Long
 Dim LinkAddress As String
 Dim LinkCell As Range
+Const NumberFormat As String = "_($* #,##0.00_);_($* (#,##0.00);_($* ""-""??_);_(@_)"
 
-
-
-'Load the "Summary" Worksheet
+' Load the "Summary" Worksheet
 Summary.Activate
 
-'Fill in Report Header Information
+' Fill in Report Header Information
 Summary.Range("A1").Value = "Fotronic Corporation"
 Summary.Range("A2").Value = "Comparison of Tax Return, Vertex, and Sage"
 Summary.Range("A3").Value = ReconState & " for Period Ended " & Format(EndDate, "yyyy-mm-dd")
@@ -3738,33 +3894,30 @@ Summary.Range("A5").Value = "Taxable Sales:"
 Summary.Range("A6").Value = "NonTaxable or Excluded Sales:"
 Summary.Range("A7").Value = "Sales Tax:"
 
-'Determine whether Sales Tax should be included in the Gross Totals or Not
+' Determine whether Sales Tax should be included in the Gross Totals or Not
 If User_Interface.Toggle_SalesTax_In_Gross.Value = True Then
+    Summary.Range("E4").Value = WorksheetFunction.VLookup("Grand Total", Vertex_Gross_Pivot.TableRange2, 2, 0) + WorksheetFunction.VLookup("Grand Total", Vertex_Tax.TableRange2, 2, 0)
+    Summary.Range("E5").Value = WorksheetFunction.VLookup("Grand Total", Vertex_Gross_Pivot.TableRange2, 3, 0)
+    Summary.Range("E6").Value = WorksheetFunction.VLookup("Grand Total", Vertex_Gross_Pivot.TableRange2, 2, 0) - WorksheetFunction.VLookup("Grand Total", Vertex_Gross_Pivot.TableRange2, 3, 0)
+    Summary.Range("E7").Value = WorksheetFunction.VLookup("Grand Total", Vertex_Gross_Pivot.TableRange2, 6, 0)
 
-Summary.Range("E4").Value = WorksheetFunction.VLookup("Grand Total", Vertex_Gross_Pivot.TableRange2, 2, 0) + WorksheetFunction.VLookup("Grand Total", Vertex_Tax.TableRange2, 2, 0)
+    Summary.Range("G4").Value = WorksheetFunction.VLookup("Grand Total", Sage_Gross_Pivot.TableRange2, 2, 0) + WorksheetFunction.VLookup("Grand Total", Sage_Gross_Pivot.TableRange2, 3, 0) + WorksheetFunction.VLookup("Grand Total", Sage_Gross_Pivot.TableRange2, 4, 0) + WorksheetFunction.VLookup("Grand Total", Sage_Gross_Pivot.TableRange2, 5, 0)
+    Summary.Range("G5").Value = WorksheetFunction.VLookup("Grand Total", Sage_Gross_Pivot.TableRange2, 2, 0) + WorksheetFunction.VLookup("Grand Total", Vertex_Freight_Sales.TableRange2, 3, 0)
+    Summary.Range("G6").Value = WorksheetFunction.VLookup("Grand Total", Sage_Gross_Pivot.TableRange2, 3, 0) + WorksheetFunction.VLookup("Grand Total", Vertex_Freight_Sales.TableRange2, 2, 0) - WorksheetFunction.VLookup("Grand Total", Vertex_Freight_Sales.TableRange2, 3, 0)
+    Summary.Range("G7").Value = WorksheetFunction.VLookup("Grand Total", Sage_Gross_Pivot.TableRange2, 5, 0)
 
-Summary.Range("E5").Value = WorksheetFunction.VLookup("Grand Total", Vertex_Gross_Pivot.TableRange2, 3, 0)
-Summary.Range("E6").Value = WorksheetFunction.VLookup("Grand Total", Vertex_Gross_Pivot.TableRange2, 2, 0) - WorksheetFunction.VLookup("Grand Total", Vertex_Gross_Pivot.TableRange2, 3, 0)
-Summary.Range("E7").Value = WorksheetFunction.VLookup("Grand Total", Vertex_Gross_Pivot.TableRange2, 6, 0)
-
-Summary.Range("G4").Value = WorksheetFunction.VLookup("Grand Total", Sage_Gross_Pivot.TableRange2, 2, 0) + WorksheetFunction.VLookup("Grand Total", Sage_Gross_Pivot.TableRange2, 3, 0) + WorksheetFunction.VLookup("Grand Total", Sage_Gross_Pivot.TableRange2, 4, 0) + WorksheetFunction.VLookup("Grand Total", Sage_Gross_Pivot.TableRange2, 5, 0)
-Summary.Range("G5").Value = WorksheetFunction.VLookup("Grand Total", Sage_Gross_Pivot.TableRange2, 2, 0) + WorksheetFunction.VLookup("Grand Total", Vertex_Freight_Sales.TableRange2, 3, 0)
-Summary.Range("G6").Value = WorksheetFunction.VLookup("Grand Total", Sage_Gross_Pivot.TableRange2, 3, 0) + WorksheetFunction.VLookup("Grand Total", Vertex_Freight_Sales.TableRange2, 2, 0) - WorksheetFunction.VLookup("Grand Total", Vertex_Freight_Sales.TableRange2, 3, 0)
-Summary.Range("G7").Value = WorksheetFunction.VLookup("Grand Total", Sage_Gross_Pivot.TableRange2, 5, 0)
-
-Summary.Range("C4:G7").Style = "Comma"
-Summary.Range("I1").Value = "Variance - Sage Data to Vertex Data"
-Summary.Range("I4").Value = "=E4-G4"
-Summary.Range("I5").Value = "=E5-G5"
-Summary.Range("I6").Value = "=E6-G6"
-Summary.Range("I7").Value = "=E7-G7"
+    Summary.Range("C4:G7").Style = "Comma"
+    Summary.Range("I1").Value = "Variance - Sage Data to Vertex Data"
+    Summary.Range("I4").Value = "=E4-G4"
+    Summary.Range("I5").Value = "=E5-G5"
+    Summary.Range("I6").Value = "=E6-G6"
+    Summary.Range("I7").Value = "=E7-G7"
 
 Else
 'If Gross Amount does not include sales tax then...
 
-''Populate Gross Vertex Sales
+''Populate Gross Vertex Sales from the Vertex Gross Sales Pivot Table
 Summary.Range("E4").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_GrossComp_Gross.Address(external:=True) & ",0,0)"
-
 
 ' Link the Vertex Gross Sales to its source data
 Summary.Range("E4").Select
@@ -3775,7 +3928,7 @@ LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
 'Format the data into an accounting format
-Summary.Range("E4").NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* " & Chr(34) & "-" & Chr(34) & "??_);_(@_)"
+Step_17_Secondary_SetCellFormat Summary.Range("E4"), NumberFormat
 
 'Populate Vertex Taxable Sales
 Summary.Range("E5").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_GrossComp_Taxable.Address(external:=True) & ",0,0)"
@@ -3789,7 +3942,7 @@ LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
 'Format the data to accounting format
-Summary.Range("E5").NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* " & Chr(34) & "-" & Chr(34) & "??_);_(@_)"
+Step_17_Secondary_SetCellFormat Summary.Range("E5"), NumberFormat
 
 'Populate Vertex Exempt Sales
 Summary.Range("E6").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_GrossComp_Exempt.Address(external:=True) & ",0,0)"
@@ -3803,8 +3956,7 @@ LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
 'Format the data to accounting format
-Summary.Range("E6").NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* " & Chr(34) & "-" & Chr(34) & "??_);_(@_)"
-
+Step_17_Secondary_SetCellFormat Summary.Range("E6"), NumberFormat
 
 'Populate Vertex Sales Tax
 Summary.Range("E7").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_Tax_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Tax_Tax.Address(external:=True) & ",0,0)"
@@ -3816,7 +3968,9 @@ Set LinkCell = Selection
 LinkAddress = Vertex_Pivot.Range("J" & LinkRow).Address(external:=True)
 LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
-Summary.Range("E7").NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* " & Chr(34) & "-" & Chr(34) & "??_);_(@_)"
+
+'Format the Cell
+Step_17_Secondary_SetCellFormat Summary.Range("E7"), NumberFormat
 
 
 'Populate Sage Gross Sales
@@ -3831,12 +3985,13 @@ LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
 ' format Sage Gross Sales as Accounting
-Summary.Range("G4").NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* " & Chr(34) & "-" & Chr(34) & "??_);_(@_)"
+Step_17_Secondary_SetCellFormat Summary.Range("G4"), NumberFormat
 
 
-' Create a second view of Sage Sales starting with Taxable
+' Create a second view of Sage Sales to show taxable freight calculation
 Summary.Range("J3").Value = "Sage Taxable Sales:"
 Summary.Range("J3").Style = "Normal"
+
 
 'Populate the Sage Taxable Sales Value
 Summary.Range("K3").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Taxable.Address(external:=True) & ",0,0)"
@@ -3848,7 +4003,7 @@ LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
 'Set the Number Format for the Sage Taxable Sales Amount
-Summary.Range("K3").NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* " & Chr(34) & "-" & Chr(34) & "??_);_(@_)"
+Step_17_Secondary_SetCellFormat Summary.Range("K3"), NumberFormat
 
 'Populate the Vertex Taxable Freight
 Summary.Range("J4").Value = "Vertex Taxable Freight:"
@@ -3863,41 +4018,61 @@ LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
 'Format the number as accounting/currency
-Summary.Range("K4").NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* " & Chr(34) & "-" & Chr(34) & "??_);_(@_)"
+Step_17_Secondary_SetCellFormat Summary.Range("K4"), NumberFormat
 
-
+'Fill in Header for Total Sage Taxable Sales (Taxable Freight View)
 Summary.Range("J5").Value = "Total Sage Taxable Sales:"
 Summary.Range("K5").Style = "Normal"
 Summary.Range("K5").Value = "=K3+K4"
-Summary.Range("K5").NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* " & Chr(34) & "-" & Chr(34) & "??_);_(@_)"
 
+'Format the number
+Step_17_Secondary_SetCellFormat Summary.Range("K5"), NumberFormat
+
+'Fill in Header for Total Sage Non-taxable Sales (Taxable Freight View)
 Summary.Range("J7").Value = "Sage Non-Taxable Sales"
+
+'Lookup Sage Nontaxable Sales
 Summary.Range("K7").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Nontaxable.Address(external:=True) & ",0,0)"
+
+'Link Sage Nontaxable Sales to its Source Data
 Summary.Range("K7").Select
 LinkRow = WorksheetFunction.CountA(Sheets("Sage_Gross Compare").Range("A:A")) + 4
 Set LinkCell = Selection
 LinkAddress = Sheets("Sage_Gross Compare").Range("D" & LinkRow).Address(external:=True)
 LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
-Summary.Range("K7").NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* " & Chr(34) & "-" & Chr(34) & "??_);_(@_)"
 
+'Format the number
+Step_17_Secondary_SetCellFormat Summary.Range("K7"), NumberFormat
 
+'Lookup Vertex Non-Taxable Freight
 Summary.Range("J8").Value = "Vertex Non-Taxable Freight"
 Summary.Range("K8").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Freight_Exempt.Address(external:=True) & ",0,0)"
+
+'Link Vertex Non-Taxable to source data
 Summary.Range("K8").Select
 LinkRow = WorksheetFunction.CountA(Sheets("Vertex Pivot").Range("Q:Q")) + 6
 Set LinkCell = Selection
 LinkAddress = Sheets("Vertex Pivot").Range("Q" & LinkRow).Address(external:=True)
 LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
-Summary.Range("K8").NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* " & Chr(34) & "-" & Chr(34) & "??_);_(@_)"
 
+'Format data as accounting
+Step_17_Secondary_SetCellFormat Summary.Range("K8"), NumberFormat
+
+'Create Row Header for Sage Non-Taxable Sales
 Summary.Range("J9").Value = "Total Sage Non-Taxable"
+
+' Calculate Variance between Sage and Vertex Non-Taxable Sales
 Summary.Range("K9").Value = "=K7+K8"
-Summary.Range("K9").NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* " & Chr(34) & "-" & Chr(34) & "??_);_(@_)"
 
+'Format Calculated Variance as Accounting
+Step_17_Secondary_SetCellFormat Summary.Range("K9"), NumberFormat
 
+'Populate Taxable Sales for Sage
 Summary.Range("G5").Value = "=K5"
+
+'Link Taxable Sales back to source data
 Summary.Range("G5").Select
 LinkRow = 5
 Set LinkCell = Selection
@@ -3905,32 +4080,47 @@ LinkAddress = Sheets("Summary").Range("K" & LinkRow).Address(external:=True)
 LinkAddress = "K5"
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
+' Populate Sage Nontaxable Sales
 Summary.Range("G6").Value = "=K9"
+
+'Select Datapoint to Link to Its Source
 Summary.Range("G6").Select
-LinkRow = 5
+
+' Link Data back to its source data
+LinkRow = 6
 Set LinkCell = Selection
 LinkAddress = Sheets("Summary").Range("K" & LinkRow).Address(external:=True)
 LinkAddress = "K9"
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
+'Populate Sage Sales Tax Amount via Lookup from Sage Pivot
 Summary.Range("G7").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_SageTax.Address(external:=True) & ",0,0)"
+
+'Link Sage Sales Tax back to source data
 Summary.Range("G7").Select
 LinkRow = WorksheetFunction.CountA(Sheets("Sage_Gross Compare").Range("A:A")) + 4
 Set LinkCell = Selection
 LinkAddress = Sheets("Sage_Gross Compare").Range("F" & LinkRow).Address(external:=True)
 LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
-Summary.Range("K3").NumberFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* " & Chr(34) & "-" & Chr(34) & "??_);_(@_)"
 
-
-
+'Create Variance Calculation Between Sage and Vertex Datasets
 Summary.Range("I1").Value = "Variance - Sage Data to Vertex Data"
 Summary.Range("I4").Value = "=E4-G4"
 Summary.Range("I5").Value = "=E5-G5"
 Summary.Range("I6").Value = "=E6-G6"
 Summary.Range("I7").Value = "=E7-G7"
 
- End If
+'Format Numbers for various numbers listed on the summary sheet
+Step_17_Secondary_SetCellFormat Summary.Range("K3"), NumberFormat
+Step_17_Secondary_SetCellFormat Summary.Range("I1"), NumberFormat
+Step_17_Secondary_SetCellFormat Summary.Range("I4"), NumberFormat
+Step_17_Secondary_SetCellFormat Summary.Range("I5"), NumberFormat
+Step_17_Secondary_SetCellFormat Summary.Range("I6"), NumberFormat
+Step_17_Secondary_SetCellFormat Summary.Range("I7"), NumberFormat
+End If
+
+'If Credit Report was inputed pull the relevant credit inforemation for the state being reconciled
 If User_Interface.CheckBox1.Value = True Then
 Summary.Range("A10").Value = "Credits Held"
 Summary.Range("A11").Value = "Credits Applied"
@@ -3951,23 +4141,13 @@ End If
 
 Summary.Range("A15").Value = "Vendor Credit/Discount"
 
+
 Dim Sage_AR_Data_NonTaxable As Range
 Dim Sage_AR_Data_Taxable As Range
 Dim Sage_AR_Data_Freight As Range
 Dim Sage_AR_Data_Tax As Range
 
-
-'Sage_AR_Data_NonTaxable = Sage.Range(Sage.Cells(1, WorksheetFunction.Match("TaxableSalesAmt", Sage.Range("1:1"), 0)), _
-'Sage.Cells(WorksheetFunction.CountA(Sage.Range("A:A")), WorksheetFunction.Match("NonTaxableSalesAmt", Sage.Range("1:1"), 0)))
-
-'Sage_AR_Data_Taxable = Sage.Range(Sage.Cells(1, WorksheetFunction.Match("TaxableSalesAmt", Sage.Range("1:1"), 0)), _
-'Sage.Cells(WorksheetFunction.CountA(Sage.Range("A:A")), WorksheetFunction.Match("NonTaxableSalesAmt", Sage.Range("1:1"), 0)))
-
-'Sage_AR_Data_Freight = Sage.Range(Sage.Cells(1, WorksheetFunction.Match("FreightAmt", Sage.Range("1:1"), 0)), _
-Sage.Cells(WorksheetFunction.CountA(Sage.Range("A:A")), WorksheetFunction.Match("FreightAmt", Sage.Range("1:1"), 0)))
-
-'Sage_AR_Data_Tax = Sage.Range(Sage.Cells(1, WorksheetFunction.Match("SalesTaxAmt", Sage.Range("1:1"), 0)), _
-Sage.Cells(WorksheetFunction.CountA(Sage.Range("A:A")), WorksheetFunction.Match("SalesTaxAmt", Sage.Range("1:1"), 0)))
+'Populate Section listing marketplace facilitated sales included in the return by marketplace
 
 Summary.Range("A20").Value = "Non-Taxable Sales Excluding Mktplcfac"
 Summary.Range("A20").Font.Bold = True
@@ -3999,24 +4179,26 @@ Dim DeductionTypes As Range
 Dim Loop_DeductionType As Range
 Dim DeductionTypeDict As Object
 Dim Key As Variant
-Dim LastRow As Long
+Dim lastRow As Long
 Dim Nth_ded As Long
 
 
 With Vtex_Nt
-LastRow = Vtex_Nt.Cells.Find("Grand Total", Vtex_Nt.Range("A1"), xlValues).row
-
-Set DeductionTypes = Vtex_Nt.Range("N" & Vtex_Nt.Cells.Find("Trimmed Invoice No", After:=Vtex_Nt.Range("A1")).row + 1 & ":N" & LastRow)
+    lastRow = Vtex_Nt.Cells.Find("Grand Total", Vtex_Nt.Range("A1"), xlValues).row
+    Set DeductionTypes = Vtex_Nt.Range("N" & Vtex_Nt.Cells.Find("Trimmed Invoice No", After:=Vtex_Nt.Range("A1")).row + 1 & ":N" & lastRow)
 End With
+
+'Create a Scripting Dictionary to Hold Each deduction type
 Set DeductionTypeDict = CreateObject("Scripting.Dictionary")
 
-
+'Loop through the deduction types and add each type to the dictionary if it hasn't previously been added.
 For Each Loop_DeductionType In DeductionTypes
     If Not DeductionTypeDict.Exists(Loop_DeductionType.Value) Then
         DeductionTypeDict.Add Loop_DeductionType.Value, Loop_DeductionType.Value
     End If
 Next Loop_DeductionType
 
+'Fill out Headers for Deductions Summary
 Nth_ded = Summary.Cells.Find("Deduction Categorical Summary", After:=Summary.Range("A1")).row
 Summary.Range("E" & Nth_ded).Value = "Amount Excluding Freight"
 Summary.Range("E" & Nth_ded).WrapText = True
@@ -4024,93 +4206,77 @@ Summary.Range("E" & Nth_ded).Interior.Color = RGB(180, 198, 231)
 Summary.Range("G" & Nth_ded).Value = "Freight"
 Summary.Range("G" & Nth_ded).WrapText = True
 Summary.Range("G" & Nth_ded).Interior.Color = RGB(180, 198, 231)
-Summary.Range("I" & Nth_ded).Value = "Total"
+Summary.Range("I" & Nth_ded).Value = "Gross Total"
 Summary.Range("I" & Nth_ded).WrapText = True
 Summary.Range("I" & Nth_ded).Interior.Color = RGB(180, 198, 231)
+Summary.Range("J" & Nth_ded).Value = "Vertex Exempt Amt"
+Summary.Range("J" & Nth_ded).WrapText = True
+Summary.Range("J" & Nth_ded).Interior.Color = RGB(180, 198, 231)
+Summary.Range("J" & Nth_ded).Font.Bold = True
 
-With Summary.Range("A" & Nth_ded & ":I" & Nth_ded)
-.Interior.Color = RGB(180, 198, 231)
-.Font.Bold = True
-
+'Format Deduction Section Headers
+With Summary.Range("A" & Nth_ded & ":J" & Nth_ded)
+    .Interior.Color = RGB(180, 198, 231)
+    .Font.Bold = True
 End With
 
+'Loop through the deduction type dictionary and add each type as a row
 For Each Key In DeductionTypeDict.Keys
 Nth_ded = Nth_ded + 1
     Summary.Range("A" & Nth_ded).Value = DeductionTypeDict(Key)
 Next Key
 
+'Lookup the amount of sales for each category from the vertex nontaxable pivot table
 For i = Summary.Cells.Find("Deduction Categorical Summary", After:=Summary.Range("A1")).row + 1 To Nth_ded - 1
 Summary.Range("E" & i).Value = "=Sumproduct(--(" & Chr(34) & Summary.Range("A" & i).Value & Chr(34) & "='Vertex_Nontaxable'!N:N" & "),'Vertex_Nontaxable'!O:O" & ")"
 Summary.Range("G" & i).Value = "=Sumproduct(--(" & Chr(34) & Summary.Range("A" & i).Value & Chr(34) & "='Vertex_Nontaxable'!N:N" & "),'Vertex_Nontaxable'!D:D" & ")" & "-" & "Sumproduct(--(" & Chr(34) & Summary.Range("A" & i).Value & Chr(34) & "='Vertex_Nontaxable'!N:N" & "),'Vertex_Nontaxable'!O:O" & ")"
 Summary.Range("I" & i).Value = "=E" & i & "+G" & i
+Summary.Range("J" & i).Value = "=Sumproduct(--(" & Chr(34) & Summary.Range("A" & i).Value & Chr(34) & "='Vertex_Nontaxable'!N:N" & "),'Vertex_Nontaxable'!F:F" & ")"
+
+
 Next i
 
+'Calculate Total Direct Pay
 Summary.Range("A" & Summary.Cells(Rows.Count, 1).End(xlUp).row + 2).Value = "Total Vertex Direct Pay Permits Applied"
-
- Summary.Range("E" & Summary.Cells(Rows.Count, 1).End(xlUp).row).Value = "=SUMPRODUCT(--((Vertex!AZ:AZ=" & Chr(34) & "STATE" & Chr(34) & ")" & Chr(42) & "(Vertex!BY:BY=" & Chr(34) & "Direct Pay Permit Default" & Chr(34) & ")),Vertex!AU:AU)"
+Summary.Range("E" & Summary.Cells(Rows.Count, 1).End(xlUp).row).Value = "=SUMPRODUCT(--((Vertex!AZ:AZ=" & Chr(34) & "STATE" & Chr(34) & ")" & Chr(42) & "(Vertex!BY:BY=" & Chr(34) & "Direct Pay Permit Default" & Chr(34) & ")),Vertex!AU:AU)"
 Taxbook.Sheets("Zipcodes").Visible = False
 
+'Format Cells
 
+Summary.Columns.AutoFit
 
+Sage.Range("1:1").Interior.ColorIndex = 15
+Sage.Columns.AutoFit
 
+Vertex.Range("1:1").Interior.ColorIndex = 15
+Vertex.Columns.AutoFit
 
-End Sub
-
-Sub Q_FN_Setup_Mktplc_Formulas()
-
-
-Mktplc_HR = MktplcPiv.TableRange1.row
-Mktplc_LR = MktplcPiv.DataBodyRange.Rows.Count + Mktplc_HR
-Mktplc_LC = WorksheetFunction.CountA(Mktplc.Range(Mktplc_HR & ":" & Mktplc_HR))
-
-Mktplc_Taxable = "MKTPLCFAC!" & Mktplc.Range("B" & Mktplc_LR + 1).Address(RowAbsolute:=True, ColumnAbsolute:=True)
-Mktplc_NonTaxable = "MKTPLCFAC!" & Mktplc.Range("C" & Mktplc_LR + 1).Address(RowAbsolute:=True, ColumnAbsolute:=True)
-Mktplc_Freight = "MKTPLCFAC!" & Mktplc.Range("D" & Mktplc_LR + 1).Address(RowAbsolute:=True, ColumnAbsolute:=True)
-Mktplc_Tax = "MKTPLCFAC!" & Mktplc.Range("E" & Mktplc_LR + 1).Address(RowAbsolute:=True, ColumnAbsolute:=True)
-
+Step_17_Secondary_SetCellFormat Summary.Range("C:K"), NumberFormat
 
 
 End Sub
-Sub FN_Create_Error_Report()
-
-Error_Report.Range("A1").Value = "Fotronic Corporation"
-Error_Report.Range("A2").Value = EndDate
-Error_Report.Range("A3").Value = "Transactions From Sage Where the Vertex Record Disagrees"
-Sage_Pivot.Range(Sage_Sales_First_Row & ":" & Sage_Sales_First_Row).Copy
-Error_Report.Range("A" & WorksheetFunction.CountA(Error_Report.Range("A:A") + 1)).PasteSpecial xlPasteValuesAndNumberFormats
 
 
-End Sub
-Sub FN_Add_Filters_Sage_Vtx()
-Dim Vertex As Worksheet
-Dim Sage As Worksheet
-Dim Error_Report As Worksheet
-
-Set Vertex = ActiveWorkbook.Sheets("Vertex")
-Set Sage = ActiveWorkbook.Sheets("Summary")
-Set Error_Report = ActiveWorkbook.Sheets("Error Report")
-
-Dim Error_Sheet_LR As Long
-
-Error_Sheet_LR = Error_Report.Cells.Find("Row Labels", Error_Report.Range("B1")).row - 1
-
-For i = 2 To Error_Sheet_LR
-
-Next i
 
 
-End Sub
 Sub Step_01_Main_Filter_And_Extract_Vertex_data()
 
 
-'This Subroutine does the following:
-'1.) Creates a Sheet within the Vertex Transactional Report Datafile called Settings
-'2.) Coppies the Situs Main Division Column Into the created sheet
-'3.) Copies the Destination Main Division Column into the created sheet
-'4.) Copies the Destination Countrry into the created sheet
-'5.) Formats the country code to be USA, and deletes any rows where the country is not USA or US
-'6.) Copies the posting dates and removed duplicates on all data sets. This should leave you with a setting sheet that lists the range of dates in the vertex data, their destination state, and desination country.
-'These lists are used when activating the Userform at the end that will use these lists to let a user configure the parameters of the reconciliation
+'The Step_01_Main_Filter_And_Extract_Vertex_data subroutine performs several tasks to prepare the data for further processing. Let's go through each step:
+
+    '1. The subroutine initializes variables and settings and disables display alerts.
+    '2. The Vertex object is set as the active sheet, and the SourceData object is set as the active workbook. The DropboxDir variable is assigned a directory path.
+    '3. The subroutine creates a new worksheet named "Settings" and deletes any existing sheets with the same name.
+    '4. The Vertex sheet is renamed to include the date range of the data.
+    '5. The Copy_Column_To_Settings_Sheet procedure is called three times to copy the Situs Main Division, Destination Main Division, and Destination Country columns from the Vertex sheet to the "Settings" sheet (Config).
+    '6. Duplicates in columns A to C of the "Settings" sheet are removed, and the data is sorted.
+    '7. Rows in the "Settings" sheet that do not have "US" or "USA" in the Destination Country column are filtered out. If a row is deleted, the loop counter i is decremented to account for the shifted rows.
+    '8. The Posting Date column is copied from the Vertex sheet to the "Settings" sheet.
+    '9  The Posting Date column is formatted as "mm/dd/yyyy" and sorted. Duplicates are removed.
+    '10 The "Settings" sheet is hidden, and the User_Interface form is shown.
+    '11 The window state of the workbook is set to minimized.
+
+'Overall, this subroutine creates a "Settings" sheet, extracts and filters relevant columns from the Vertex sheet, and prepares the data for user interaction through the User_Interface form.
 
 '' Initialize variables and settings
 Dim Function_Last_Row As Long
@@ -4201,60 +4367,49 @@ Set ColumnRange = Vertex.Rows(1).Find(What:=ColumnName, LookIn:=xlValues, LookAt
     End If
 
 End Sub
-Sub X_FN_Formatting()
-
-Summary.Columns.AutoFit
-Summary.Range("B:K").Style = "Comma"
-
-Sage.Range("1:1").Interior.ColorIndex = 15
-Sage.Columns.AutoFit
-
-Vertex.Range("1:1").Interior.ColorIndex = 15
-Vertex.Columns.AutoFit
-
-End Sub
 
 
-
-
-Sub W_FN_Input_Return_Data()
-
+Sub Step_18_Main_Input_Return_Data()
 If CDate(EndDate) < WorksheetFunction.EoMonth(CDate(StartDate), 0) Then
-
+' No action is taken if the end date is less than the last day of the start month
 Else
-    Dim prompt As String
-    Dim title As String
-    Dim response As VbMsgBoxResult
-    Dim timeout As Long
-    
+' Declaration of variables
+Dim prompt As String
+Dim title As String
+Dim response As VbMsgBoxResult
+Dim timeout As Long
+
+
+
+    ' Set the prompt, title, and timeout values
     prompt = "Is return data available?"
     title = "Data Availability"
     timeout = Now + TimeValue("00:00:15")
     
+    ' Display the message box and store the user's response
     response = MsgBox(prompt, vbQuestion + vbYesNo, title)
     
+    ' Continue displaying the message box with retry option until a response is received or the timeout is reached
     Do While response = vbRetry And Now < timeout
         response = MsgBox(prompt, vbQuestion + vbYesNo, title)
     Loop
     
+    ' Process the user's response
     If response = vbYes Then
-        'Code to retrieve and display the available data
+        ' Code to retrieve and display the available data
         TaxReturn_Details.Show
     Else
-        'Code to handle the case when the user answers No or when the timeout is reached
+        ' Code to handle the case when the user answers No or when the timeout is reached
+        ' Add appropriate code or a message to inform the user
     End If
-    End If
+End If
+
 End Sub
-
-
-
-Sub FN_Filter_for_Errors()
+Sub Step_22_Main_Filter_Vertex_Data_For_Errors()
 
 Dim ER_LR As Long
 Dim ER_HR As Long
 Dim ER_LC As Long
-
-
 
 ER_LR = WorksheetFunction.CountA(Error_Report.Range("A:A"))
 ER_HR = 1
@@ -4269,60 +4424,45 @@ End Sub
 
 Sub FN_Create_Vendor_Upload()
 
-Dim Upload As Worksheet
-Dim Tax_Vendor_Lookup As Workbook
-Dim MasterBook As Workbook
-Dim SaveLocation As String
-Dim Last_Row As Long
-Dim Tax_Vendor_Row As Long
 
-
-MsgBox ("Select the Exepense Upload Workbook.")
-
-On Error Resume Next
-
-Set MasterBook = Application.Workbooks.Open(Application.GetOpenFilename)
-Set Upload = MasterBook.Sheets(1)
-Set Tax_Vendor_Lookup = Application.Workbooks.Open(DropboxDir & "Multi-State Sales Tax\Tax Jursidictions\Settings\Tax Vendor To Vertex Jurisdiction Mapping.xlsx")
-Last_Row = WorksheetFunction.CountA(MasterBook.Sheets(1).Range("A:A"))
-
-Tax_Vendor_Row = Tax_Vendor_Lookup.Sheets(1).Cells.Find(ReconState, After:=Tax_Vendor_Lookup.Sheets(1).Range("A1"), SearchOrder:=xlByColumns).row
-Upload.Range("A" & Last_Row + 1).Value = "H"
-Upload.Range("A" & Last_Row + 2).Value = "L"
-Upload.Range("A" & Last_Row + 3).Value = "L"
-Upload.Range("A" & Last_Row + 4).Value = "L"
-
-
-Upload.Range("B" & Last_Row + 1).Value = Tax_Vendor_Lookup.Sheets(1).Cells(Tax_Vendor_Row, 4).Value
-
-Upload.Range("C" & Last_Row + 1).Value = ReconState & " " & Format(StartDate, "yyyy-mm")
-
-Upload.Range("D" & Last_Row + 1).Value = Format(EndDate, "mm/dd/yyyy")
-
-Upload.Range("B" & Last_Row + 2).Value = "9999900A3"
-Upload.Range("B" & Last_Row + 3).Value = "243000000"
-Upload.Range("B" & Last_Row + 4).Value = "99999009X"
-
-
-Upload.Range("C" & Last_Row + 2).Value = -Total_Discount_Amt
-
-Upload.Range("D" & Last_Row + 2).Value = Format(EndDate, "yyyy-mm-dd") & " " & ReconState & " Discount of Tax Collected"
-
-Upload.Range("C" & Last_Row + 4).Value = "=-1*(" & Summary.Range("E10").Value - Round(Total_Discount_Amt, 2) - Round(Total_Return_Tax, 2) & ")"
-Upload.Range("D" & Last_Row + 3).Value = Format(EndDate, "yyyy-mm-dd") & " " & ReconState & " Tax Liability Payment"
-Upload.Range("D" & Last_Row + 4).Value = Format(EndDate, "yyyy-mm-dd") & " " & ReconState & " Rounding Adjustment"
-Upload.Columns.AutoFit
-
-Upload.Range("C" & Last_Row + 3).Value = Summary.Range("E10").Value
-
-Upload.Range("C:C").Style = "Comma"
-MasterBook.Save
-MasterBook.Close
-Tax_Vendor_Lookup.Close
-
+' Determine if the State has it's own ledger account for liability tracking
 
 
 End Sub
+Function GetAccountKey(state As String) As String
+    ' Compare the state against the list of records and return the corresponding account key
+    
+    Select Case state
+        Case "California"
+            GetAccountKey = "9999900AA"
+        Case "Colorado Home Qtrly"
+            GetAccountKey = "9999900AB"
+        Case "Colorado State"
+            GetAccountKey = "9999900BG"
+        Case "Iowa"
+            GetAccountKey = "9999900AC"
+        Case "Kansas"
+            GetAccountKey = "9999900AD"
+        Case "Kentucky"
+            GetAccountKey = "9999900BD"
+        Case "Maine"
+            GetAccountKey = "9999900AE"
+        Case "Minnesota"
+            GetAccountKey = "9999900AF"
+        Case "New Jersey"
+            GetAccountKey = "9999900AG"
+        Case "New York"
+            GetAccountKey = "9999900AH"
+        Case "North Dakota"
+            GetAccountKey = "9999900BE"
+        Case "Tennessee"
+            GetAccountKey = "9999900AI"
+        Case "West Virginia"
+            GetAccountKey = "9999900BF"
+        Case Else
+            GetAccountKey = "243000000" ' Default account key for Sales Tax Payable
+    End Select
+End Function
 
 Sub Step_06_Main_ImportAndFilter_Customer_Exemptions()
 
@@ -4388,30 +4528,78 @@ Sub Step_06_Secondary_AddExemptionReasonColumn(Cust_Info As Worksheet)
     Cust_Info.Range("E:E").Insert
     Cust_Info.Range("E1").Value = "Exemption Reason"
 
-    ' Loop through the rows and set Exemption Reason based on the criteria
-    For i = 1 To WorksheetFunction.CountA(Cust_Info.Range("A:A"))
-        If InStr(Cust_Info.Range("F" & i).Value, "Exempt") > 0 Then
-            Cust_Info.Range("E" & i).Value = Cust_Info.Range("G" & i).Value
-        ElseIf InStr(Cust_Info.Range("F" & i).Value, "Taxable") > 0 Then
-            Cust_Info.Range("E" & i).Value = Cust_Info.Range("P" & i).Value
+    ' Get the data from the range into an array
+    Dim data As Variant
+    data = Cust_Info.Range("A1:P" & Cust_Info.Cells(Rows.Count, "A").End(xlUp).row).Value
+    
+    ' Loop through the array and set Exemption Reason based on the criteria
+    Dim i As Long
+    For i = 2 To UBound(data, 1) ' Start from row 2 since the first row is the header
+        If InStr(data(i, 6), "Exempt") > 0 Then
+            data(i, 5) = data(i, 7)
+        ElseIf InStr(data(i, 6), "Taxable") > 0 Then
+            data(i, 5) = data(i, 16)
         End If
     Next i
+
+    ' Write the modified array back to the range with custom formatting
+    With Cust_Info.Range("A1:P" & Cust_Info.Cells(Rows.Count, "A").End(xlUp).row)
+        .NumberFormat = "@" ' Set custom formatting to treat values as text
+        .Value = data
+    End With
 End Sub
 
 Sub Step_06_Secondary_AddFormattedCustomerIDColumn(Cust_Info As Worksheet)
     ' Insert a new column and format the values for the new column
     Cust_Info.Range("B:B").Insert
+    Cust_Info.Range("B1").Value = "Formatted Customer ID"
 
-    For i = 2 To WorksheetFunction.CountA(Cust_Info.Range("A:A"))
-        If IsNumeric(Cust_Info.Range("C" & i).Value) = True Then
-            Cust_Info.Range("B" & i).Value = "'" & Right(Cust_Info.Range("C" & i).Value, 7)
+    Dim lastRow As Long
+    lastRow = Cust_Info.Cells(Cust_Info.Rows.Count, "A").End(xlUp).row
+
+    Dim dataRange As Range
+    Set dataRange = Cust_Info.Range("C2:C" & lastRow)
+
+    Dim data As Variant
+    data = dataRange.Value
+
+    Dim formattedData As Variant
+    ReDim formattedData(1 To lastRow - 1, 1 To 1)
+
+    Dim i As Long
+    For i = 1 To lastRow - 1
+        If IsNumeric(data(i, 1)) Then
+            formattedData(i, 1) = "'" & Right(data(i, 1), 7)
         Else
-            Cust_Info.Range("B" & i).Value = Right(Cust_Info.Range("C" & i).Value, 7)
+            formattedData(i, 1) = Right(data(i, 1), 7)
         End If
     Next i
+
+    Cust_Info.Range("B2").Resize(lastRow - 1, 1).Value = formattedData
+    Cust_Info.Columns("B:B").AutoFit
 End Sub
 
+
 Sub Step_04_Main_Import_Zipcode_Database()
+
+'The "Step_04_Main_Import_Zipcode_Database" subroutine is responsible for importing and filtering a zipcode database stored in a CSV file. Here's a breakdown of the steps performed in this subroutine:
+
+    '1. Define the "Import_ZIPCODE_CSV" workbook object: This line opens the CSV file containing the zipcode database and assigns it to the "Import_ZIPCODE_CSV" workbook object.
+
+    '2. Define the "ZipCode_Source" sheet object: This line sets the "ZipCode_Source" object to refer to the first sheet of the "Import_ZIPCODE_CSV" workbook.
+
+    '3. Check if the reconciliation state is "All": If the value of the "ReconState" variable does not contain the substring "ALL" (indicating that the user has specified a specific state), the code proceeds to filter the zipcode database.
+
+    '4. Filter the zipcode database by the specified state: The "ZipCode_Source" sheet's used range is filtered based on the value of the "ReconState" variable. The filter is applied to the third column (column C) of the range, which contains the state codes. Only rows matching the state code are visible after the filter is applied.
+
+    '5. Copy the filtered data to the "Zipcodes" worksheet: The visible cells of the filtered range are copied and pasted as values to the "Zipcodes" worksheet in the current workbook. The "PasteSpecial" method is used to paste only the values, without formatting or formulas.
+
+    '6. Clear the clipboard and close the imported CSV workbook: The clipboard is cleared, and the "Saved" property of the "Import_ZIPCODE_CSV" workbook is set to "True" to avoid prompting to save changes. Finally, the imported CSV workbook is closed.
+
+'If the reconciliation state is set to "All," the zipcode database is copied in its entirety to the "Zipcodes" worksheet. Otherwise, the database is filtered based on the specified state before copying it to the worksheet.
+
+'This subroutine allows for the import and filtering of a zipcode database, which can be used in various state-specific reconciliations during the reconciliation process.
+
 
 'Define the workbook object Import_ZIPCODE_CSV for the zipcode database to be the zipcode database stored on the shared drive
 Set Import_ZIPCODE_CSV = Workbooks.Open("T:\Christopher.Bartus\Tax\Zipcode Database.csv")
@@ -4441,73 +4629,51 @@ End If
 
 End Sub
 
-Sub Z_FN_Lookup_Exemption_Reason()
+Sub Step_20_Main_Format_Summary_Sheet()
 
-
-End Sub
-
-
-Sub ZB_FN_Format_Headers()
-
-
-Dim HeaderCell As Range
-Dim HeaderRow As Range
-Dim DataRow As Range
-Dim DataCell As Range
-
-
-
-Set DataRow = Error_Report.Range(Error_Report.Cells(2, 2), Error_Report.Cells(2, WorksheetFunction.CountA(Error_Report.Range("1:1"))))
-
-'For Each DataCell In DataRow
-    'If IsNumeric(DataCell.Value) = True And InStr(ActiveSheet.Cells(1, DataCell.Column).Value, "Trimmed Invoice No") = 0 Then
-    '    DataCell.EntireColumn.Style = "Comma"
-    'ElseIf IsDate(DataCell.Value) And InStr(DataCell.Value, "Invoice No") = True And InStr(ActiveSheet.Cells(1, DataCell.Column).Value, "Date") > 0 Then
-    '    DataCell.EntireColumn.NumberFormat = "mm/dd/yyyy"
-    '  End If
-'Next DataCell
-
-End Sub
-
-Sub ZA_FN_Format_Summary()
-
-
-Dim Summarysheet As Worksheet
+Dim Summary As Worksheet
 Dim SumLastRow As Long
-Set Summarysheet = ActiveSheet
 Dim Cell As Range
 
+Set Summary = Sheets("Summary")
 
+' Find the last row in column A of the Summary sheet
 SumLastRow = Summary.Cells(Summary.Rows.Count, 1).End(xlUp).row
 
-With Summarysheet.PageSetup
-.Zoom = False
-.FitToPagesTall = 1
-.FitToPagesWide = 1
-.PrintGridlines = True
-.Orientation = xlPortrait
-End With
-Summarysheet.Columns("I").ColumnWidth = 23.5
-Summarysheet.Range("A3").Value = ReconState
-With Summarysheet.PageSetup
-.PrintArea = "$A$1:$I$" & SumLastRow
-.LeftMargin = Application.InchesToPoints(0.25)
-.RightMargin = Application.InchesToPoints(0.25)
+' Set up page layout and print settings
+With Summary.PageSetup
+    .Zoom = False
+    .FitToPagesTall = 1
+    .FitToPagesWide = 1
+    .PrintGridlines = True
+    .Orientation = xlPortrait
 End With
 
+' Adjust column width
+Summary.Columns("I").ColumnWidth = 23.5
 
+' Set values and formats for specific cells
+Summary.Range("A3").Value = ReconState
+Summary.Range("A3").Value = ReconState & " Between " & Format(StartDate, "mm/dd/yyyy") & " and " & Format(EndDate, "mm/dd/yyyy")
 Summary.Range("A15").Value = TaxReturn_Details.Total_Discount_TB.Value
-Summarysheet.Range("A3").Value = ReconState & " Between " & Format(StartDate, "mm/dd/yyyy") & "and " & Format(EndDate, "mm/dd/yyyy")
-Summarysheet.Range("1:3").WrapText = True
-Summarysheet.Range("A:A").WrapText = True
-Summarysheet.Range("1:3").Font.Bold = True
-Summarysheet.Range("1:3").Font.Size = 14
-Summarysheet.Range("1:3").WrapText = True
-Summarysheet.Range("J3:K3").Style = "Normal"
+
+' Format range and cells
+Summary.Range("1:3").WrapText = True
+Summary.Range("A:A").WrapText = True
+Summary.Range("1:3").Font.Bold = True
+Summary.Range("1:3").Font.Size = 14
+Summary.Range("1:3").WrapText = True
+Summary.Range("J3:K3").Style = "Normal"
+
+' Set font and background colors for specific cells
 Summary.Range("E1").Font.Color = RGB(4, 60, 116)
 Summary.Range("E1").Interior.Color = RGB(195, 213, 66)
 Summary.Range("G1").Font.Color = RGB(4, 220, 4)
 Summary.Range("G1").Interior.Color = RGB(248, 244, 244)
+Summary.Range("A1:D1").Interior.Color = RGB(180, 198, 231)
+Summary.Range("F1:F1").Interior.Color = RGB(180, 198, 231)
+Summary.Range("H1:J1").Interior.Color = RGB(180, 198, 231)
+' Adjust column widths
 Summary.Range("B:B").ColumnWidth = 1
 Summary.Range("C:C").ColumnWidth = 16
 Summary.Range("D:D").ColumnWidth = 1
@@ -4515,60 +4681,53 @@ Summary.Range("E:E").ColumnWidth = 16
 Summary.Range("F:F").ColumnWidth = 1
 Summary.Range("G:G").ColumnWidth = 16
 Summary.Range("H:H").ColumnWidth = 1
-Summary.Range("E20").Borders(xlEdgeBottom).LineStyle = XlLineStyle.xlDouble
-Summary.Range("E26").Borders(xlEdgeBottom).LineStyle = XlLineStyle.xlDouble
-Summary.Range("15:18").EntireRow.Delete
-Summary.Range("A1:D1").Interior.Color = RGB(180, 198, 231)
-Summary.Range("F1").Interior.Color = RGB(180, 198, 231)
-Summary.Range("H1:I1").Interior.Color = RGB(180, 198, 231)
-For Each Cell In Summary.Range("A1:I" & SumLastRow)
-    
+
+' Set borders for each cell in the range
+For Each Cell In Summary.Range("A1:J" & SumLastRow)
     With Cell.Borders(xlEdgeBottom)
         .LineStyle = xlContinuous
     End With
-    
     With Cell.Borders(xlEdgeLeft)
         .LineStyle = xlContinuous
     End With
-    
     With Cell.Borders(xlEdgeRight)
         .LineStyle = xlContinuous
     End With
-    
     With Cell.Borders(xlEdgeTop)
         .LineStyle = xlContinuous
     End With
-    
 Next Cell
 
-
+' Perform additional actions if ReconState is "NC"
 If ReconState = "NC" Then
-Summary.Range("A4").EntireRow.Insert
-Summary.Range("A4").Value = "North Caroline Acct #"
-Summary.Range("C4") = "601267099"
-Summary.Range("C4").NumberFormat = "General"
-Summary.Range("C:C").EntireColumn.AutoFit
-Summary.Range("A4").EntireRow.Insert
-Summary.Range("A4").Value = "Fotronic Tax ID #"
-Summary.Range("C4") = "04-3215575"
-Summary.Range("C4").NumberFormat = "General"
-
+    Summary.Range("A4").EntireRow.Insert
+    Summary.Range("A4").Value = "North Carolina Acct #"
+    Summary.Range("C4") = "601267099"
+    Summary.Range("C4").NumberFormat = "General"
+    Summary.Range("C:C").EntireColumn.AutoFit
+    
+    Summary.Range("A4").EntireRow.Insert
+    Summary.Range("A4").Value = "Fotronic Tax ID #"
+    Summary.Range("C4") = "04-3215575"
+    Summary.Range("C4").NumberFormat = "General"
 End If
 
-Summary.Range("J" & WorksheetFunction.CountA(Summary.Range("J:J")) + 5).Value = Format(EndDate, "YYYY-MM-DD") & " " & ReconState & " Sales Tax Return as Filed"
-Summary.Range("J" & WorksheetFunction.CountA(Summary.Range("J:J")) + 5).Value = Format(EndDate, "YYYY-MM-DD") & " " & ReconState & " Sales Tax Payment Confirmation"
-Summary.Range("J" & WorksheetFunction.CountA(Summary.Range("J:J")) + 5).Value = "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\" & ReconState & "\" & Format(StartDate, "YYYY") & "\" & Format(StartDate, "YYYY-MM")
+' Set values for specific cells
+Summary.Range("J12").Value = Format(EndDate, "YYYY-MM-DD") & " " & ReconState & " Sales Tax Return as Filed"
+Summary.Range("J13").Value = Format(EndDate, "YYYY-MM-DD") & " " & ReconState & " Sales Tax Filing Confirmation"
+Summary.Range("J14").Value = Format(EndDate, "YYYY-MM-DD") & " " & ReconState & " Sales Tax Payment Confirmation"
+Summary.Range("J15").Value = "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\" & ReconState & "\" & Format(StartDate, "YYYY") & "\" & Format(StartDate, "YYYY-MM")
 
+' Set values in Error_Report worksheet
 Error_Report.Range("A" & WorksheetFunction.CountA(Error_Report.Range("A:A")) + 10).Value = "5 Commonwealth Avenue, Unit 6"
 Error_Report.Range("A" & WorksheetFunction.CountA(Error_Report.Range("A:A")) + 10).Value = "Woburn"
 Error_Report.Range("A" & WorksheetFunction.CountA(Error_Report.Range("A:A")) + 10).Value = "'01801-1069"
-
-
 
 End Sub
 
 
 Sub Step_09_Main_Vertex_Create_NonTaxable_Pivot_Exclude_Freight()
+
 Dim Filter_PivotItem As PivotItem
 
 'Creates a pivot table report of the Vertex data that excludes freight-related transactions.
@@ -4755,27 +4914,6 @@ Set Lookup_Vertex_NontaxNoFreight_InvoiceNo = Selection
 End If
 End Sub
 
-Sub Delete_Empty_Columns()
-
-Dim LastRow As Long
-Dim lastCol As Long
-Dim i As Integer
-
-
-Dim Rng As Range
-Dim Col As Range
-
-For i = 1 To WorksheetFunction.CountA(ActiveSheet.Range("1:1"))
-    If WorksheetFunction.CountA(ActiveSheet.Columns(i)) = 1 Then
-    ActiveSheet.Columns(i).EntireColumn.Delete
-    i = i - 1
-    Else
-    End If
-Next i
-
-End Sub
-
-
 Sub Step_15_Main_Compare_Data()
 
 'Compare Taxable and Nontaxable and Gross Sales per document number between Sage and Vertex in various views
@@ -4789,6 +4927,8 @@ Step_15_Secondary_Vertex_Compare_Exempt
 End Sub
 Sub Step_15_Secondary_Vertex_Compare_Exempt()
 'Vertex Nontaxable Sales Pivot Compare
+
+Application.Calculation = xlCalculationManual
 
 ' Get the last column index in the Vertex_NonTax_Compare sheet
 Vertex_NonTax_Compare_LC = WorksheetFunction.CountA(Vertex_NonTax_Compare.Range("7:7"))
@@ -4877,13 +5017,24 @@ Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 13).Formula = "=XLOOKU
 'Populate the Sage Taxable Amount Excluding Freight
 Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 14).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(external:=True) & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Taxable.Address(external:=True) & ",0,0)"
 
+If Vertex_NonTax_Compare.Range("N" & i).Value = "Nontaxable Item" Then
+    If Vertex_NonTax_Compare.Range("F" & i).Value = WorksheetFunction.XLookup(Vertex_NonTax_Compare.Range("A" & i).Value, Sage.Range("EI:EI"), Sage.Range("BX:BX"), 0, 0) Then
+        Vertex_NonTax_Compare.Range("N" & i).Value = "Nontaxable Freight as component of taxable sale"
+    End If
+End If
+
 Next i
 
-
+Application.Calculation = xlCalculationAutomatic
+Application.Calculate
 
 End Sub
 
 Sub Step_15_Secondary_Vertex_Compare_Gross()
+
+Application.Calculation = xlCalculationManual
+
+
 'Vertex Gross Sales Pivot Compare
 
 'Get the last column in row 6 of the Vertex_Gross_Sheet
@@ -4938,7 +5089,7 @@ With Vertex_Gross_Sheet
         .Cells(i, .Cells.Find("Sage NonTaxable Sales", After:=.Range("A1")).Column).Formula = "=XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Nontaxable.Address(external:=True) & ",0,0) + XLOOKUP(A" & i & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Freight_Exempt.Address(external:=True) & ",0,0)"
         
         ' Calculate the Non-Taxable Sales Variance for the current row using a formula
-        .Cells(i, .Cells.Find("NonTaxable Sales Variance", After:=.Range("A1")).Column).Formula = "=D" & i & "-L" & i
+        .Cells(i, .Cells.Find("NonTaxable Sales Variance", After:=.Range("A1")).Column).Formula = "=B" & i & "-C" & i & "-L" & i
 
         ' Calculate the Freight Amount for the current row using XLOOKUP formulas
         .Cells(i, .Cells.Find("Sage Freight Amount", After:=.Range("A1")).Column).Formula = "=XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Freight.Address(external:=True) & ",0,0)"
@@ -4954,10 +5105,16 @@ With Vertex_Gross_Sheet
     Next i
 End With
 
+Application.Calculation = xlCalculationAutomatic
+Application.Calculate
+
+
 End Sub
 
 
 Sub Step_15_Secondary_Sage_Compare_NonFreight()
+
+Application.Calculation = xlCalculationManual
 
 'Populate Data Comparison for Sage Pivot sheet (excludes Marketplace facilitated sales)
 
@@ -5037,10 +5194,14 @@ For i = 7 To WorksheetFunction.CountA(Sage_Pivot.Range("A:A")) + 3
     Sage_Pivot.Cells(i, Sage_Pivot_LC + 10).Value = "=F" & i & "-O" & i
 Next i
 
+Application.Calculation = xlCalculationAutomatic
 
 End Sub
 
 Sub Step_15_Secondary_Sage_Compare_Gross()
+
+Application.Calculation = xlCalculationManual
+
 'Sage Gross Sales (Including Marketplace) Compare to Vertex (Sheet "Sage_Gross Compare" sheet)
 
 ' Get the last column of the Sage_Gross worksheet
@@ -5070,43 +5231,48 @@ For i = 7 To Sage_Pivot_LR - 1
     LookupInvoiceNo = Sage_Gross.Range("A" & i).Address(external:=True)
     
     ' Populate the Gross Vertex Sales Amount Column with XLOOKUP formula
-    Sage_Gross.Cells(i, Sage_Gross_LC + 1).Formula = "=XLOOKUP(A" & i & "," & Lookup_Vertex_Gross_InvoiceNo.Address & "," & Lookup_Vertex_Gross_Gross.Address & ",""ERROR"",0)"
+    Sage_Gross.Cells(i, Sage_Gross_LC + 1).Formula = "=XLOOKUP(A" & i & "," & Lookup_Vertex_Gross_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Gross_Gross.Address(external:=True) & ",""ERROR"",0)"
     
     ' Populate the Gross Sales Variance Column with formula
     Sage_Gross.Cells(i, Sage_Gross_LC + 2).Formula = "=B" & i & "-G" & i
     
     ' Populate Column Vertex Taxable Sales Excludes freight based on source with XLOOKUP formula
-    Sage_Gross.Cells(i, Sage_Gross_LC + 3).Formula = "=XLOOKUP(A" & i & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address & "," & Lookup_Vertex_NontaxNoFreight_Taxable.Address & ",""ERROR"",0)"
+    Sage_Gross.Cells(i, Sage_Gross_LC + 3).Formula = "=XLOOKUP(A" & i & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_NontaxNoFreight_Taxable.Address(external:=True) & ",""ERROR"",0)"
     
     ' Populate the Taxable Sales Variance Column with formula
     Sage_Gross.Cells(i, Sage_Gross_LC + 4).Formula = "=C" & i & "-I" & i
     
     ' Populate the Vertex Exempt Sales Column (Excludes Freight) with XLOOKUP formula
-    Sage_Gross.Cells(i, Sage_Gross_LC + 5).Formula = "=XLOOKUP(A" & i & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address & "," & Lookup_Vertex_NontaxNoFreight_Exempt.Address & ",0,0)"
+    Sage_Gross.Cells(i, Sage_Gross_LC + 5).Formula = "=XLOOKUP(A" & i & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_NontaxNoFreight_Exempt.Address(external:=True) & ",0,0)"
     
     ' Populate the Exempt Sales Variance Column with formula
     Sage_Gross.Cells(i, Sage_Gross_LC + 6).Formula = "=D" & i & "-K" & i
     
     ' Populate the Freight Sales Column (excludes marketplace sales) with XLOOKUP formula
-    Sage_Gross.Cells(i, Sage_Gross_LC + 7).Formula = "=XLOOKUP(A" & i & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address & "," & Lookup_Vertex_Freight_Gross.Address & ",0,0)"
+    Sage_Gross.Cells(i, Sage_Gross_LC + 7).Formula = "=XLOOKUP(A" & i & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Freight_Gross.Address(external:=True) & ",0,0)"
     
     ' Populate the Freight Sales Variance Column (excludes marketplace sales) with formula
-    Sage_Gross.Cells(i, Sage_Gross_LC + 8).Formula = "=E" & i & "-M" & i
+    Sage_Gross.Cells(i, Sage_Gross_LC + 8).Formula = "=D" & i & "-M" & i
     
     ' Populate the Vertex Tax Amount Column with XLOOKUP formula
-    Sage_Gross.Cells(i, Sage_Gross_LC + 9).Formula = "=XLOOKUP(A" & i & "," & Lookup_Vertex_Tax_InvoiceNo.Address & "," & Lookup_Vertex_Tax_Tax.Address & ",0,0)"
+    Sage_Gross.Cells(i, Sage_Gross_LC + 9).Formula = "=XLOOKUP(A" & i & "," & Lookup_Vertex_Tax_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Tax_Tax.Address(external:=True) & ",0,0)"
     
     ' Populate the Tax Variance Column with formula
     Sage_Gross.Cells(i, Sage_Gross_LC + 10).Formula = "=F" & i & "-O" & i
 Next i
 
-
+Application.Calculation = xlCalculationAutomatic
+Application.Calculate
 
 ' Resize columns in the Sage_Gross worksheet to fit data
 Sage_Gross.Columns.AutoFit
 End Sub
 
 Sub Step_15_Secondary_Sage_Compare_Marketplace()
+
+Application.Calculation = xlCalculationManual
+
+
 'Compare Data Exclusive of Marketplace Sales
 ' Initialize Mktplc_LC variable to the number of non-empty cells in the 6th row of the Mktplc worksheet
 Mktplc_LC = WorksheetFunction.CountA(Mktplc.Range("6:6"))
@@ -5159,118 +5325,115 @@ For i = 7 To WorksheetFunction.CountA(Mktplc.Range("A:A")) + 3
     Mktplc.Cells(i, Mktplc_LC + 10).Value = "=F" & i & "-O" & i
     
 Next i
+
+Application.Calculation = xlCalculationAutomatic
+Application.Calculate
 End Sub
 
 
 
-Sub ZD_Create_Index()
+Sub Step_21_Main_Create_Index_Of_Sheets()
 
 Dim Index As Worksheet
 Dim Total_Worksheets As Integer
+Dim Counter As Integer
+Dim i As Integer
 
-
+' Hide specific sheets
 Sheets("Exemption Pivot Data").Visible = False
-Sheets("Return Report").Visible = False
+Sheets("Exemption Report").Visible = False
 
-
+' Create a new sheet for the index
 Set Index = Sheets.Add(After:=Sheets("Summary"))
 Index.Name = "Index"
+
+' Set column headers and formatting
 Index.Range("A1").Value = "Sheet Name"
 Index.Range("A1").Font.Bold = True
 Index.Range("A1").Interior.Color = RGB(180, 198, 231)
 Index.Range("B1").Value = "Sheet Description"
 Index.Range("B1").Font.Bold = True
 Index.Range("B1").Interior.Color = RGB(180, 198, 231)
+
+' Initialize counter and get total number of worksheets
 Counter = WorksheetFunction.CountA(Index.Range("A:A")) + 1
 Total_Worksheets = Worksheets.Count
+
+' Loop through each worksheet
 For i = 1 To Total_Worksheets
-
-If Sheets(i).Visible = False Then
-ElseIf Sheets(i).Name = "Index" Then
-Else
-
-Index.Range("A" & Counter).Value = Sheets(i).Name
-
-
-Counter = Counter + 1
-
-End If
-
-If Sheets(i).Name = "Summary" Then
-Index.Range("B" & Counter - 1).Value = "Summary of Data between Vertex, Sage, and Tax Return Data. Return Data has to be manually input for comparison"
-Index.Range("B" & Counter - 1).Select
-ActiveCell.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
-Index.Columns.AutoFit
-ElseIf Sheets(i).Name = "Vertex ET Non Freight" Then
-Index.Range("B" & Counter - 1).Value = "Pivot of Vertex Data by Invoice Number Excluding Freight Sales"
-Index.Range("B" & Counter - 1).Select
-ActiveCell.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
-Index.Columns.AutoFit
-ElseIf Sheets(i).Name = "Exemption Report" Then
-Index.Range("B" & Counter - 1).Value = "Database of Customer Exemptions Generated from Vertex Config Report"
-Index.Range("B" & Counter - 1).Select
-ActiveCell.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
-Index.Columns.AutoFit
-ElseIf Sheets(i).Name = "Error Report" Then
-Index.Range("B" & Counter - 1).Value = "Summary of Variances found between the Vertex and Sage Databases."
-Index.Range("B" & Counter - 1).Select
-ActiveCell.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
-Index.Columns.AutoFit
-ElseIf Sheets(i).Name = "MKTPLCFAC" Then
-Index.Range("B" & Counter - 1).Value = "Pivot Table of Sage Marketplace Sales"
-Index.Range("B" & Counter - 1).Select
-ActiveCell.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
-Index.Columns.AutoFit
-ElseIf Sheets(i).Name = "Vertex_Nontaxable" Then
-Index.Range("B" & Counter - 1).Value = "Working Sheet with Pivot of Vertex data compared to related sage data by document number including freight. Data is used to also determine exemption reason."
-Index.Range("B" & Counter - 1).Select
-ActiveCell.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
-Index.Columns.AutoFit
-ElseIf Sheets(i).Name = "Vertex_Gross Compare" Then
-Index.Range("B" & Counter - 1).Value = "Working Sheet with Pivot of Vertex data compared to related sage data by document number including gross freight comparisons. Data is used in generation of Error Report sheet."
-Index.Range("B" & Counter - 1).Select
-ActiveCell.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
-Index.Columns.AutoFit
-ElseIf Sheets(i).Name = "Vertex Pivot" Then
-Index.Range("B" & Counter - 1).Value = "Pivots of Vertex Data isolating both gross sales, taxable and exempt (Non taxable + exempt), total tax, and taxable and non-taxable freight for reverse freight taxability lookups. Each pivot is by document number"
-Index.Range("B" & Counter - 1).Select
-ActiveCell.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
-Index.Columns.AutoFit
-ElseIf Sheets(i).Name = "Sage_Gross Compare" Then
-Index.Range("B" & Counter - 1).Value = "Working Sheet  with Pivots of Sage Data combined with freight data and compared with vertex data used in generation of Error Report"
-Index.Range("B" & Counter - 1).Select
-ActiveCell.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
-Index.Columns.AutoFit
-ElseIf Sheets(i).Name = "Sage Pivot" Then
-Index.Range("B" & Counter - 1).Value = "Pivot of Sage Sales Excluding Marketplace Sales"
-Index.Range("B" & Counter - 1).Select
-ActiveCell.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
-Index.Columns.AutoFit
-ElseIf Sheets(i).Name = "Sage AR Data" Then
-Index.Range("B" & Counter - 1).Value = "Raw Sage Data downloaded directly from the back end"
-Index.Range("B" & Counter - 1).Select
-ActiveCell.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
-Index.Columns.AutoFit
-ElseIf Sheets(i).Name = "Vertex" Then
-Index.Range("B" & Counter - 1).Value = "Raw Vertex Data downloaded directly from the vertex portal and filtered for the reconciliation state"
-Index.Range("B" & Counter - 1).Select
-ActiveCell.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
-Index.Columns.AutoFit
-ElseIf Sheets(i).Name = "Credit Report" Then
-Index.Range("B" & Counter - 1).Value = "Downloaded Vertex Credit Report stored on Dropbox. This report is downloaded and saved monthly "
-Index.Range("B" & Counter - 1).Select
-ActiveCell.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
-Index.Columns.AutoFit
-
-End If
-
+    ' Skip hidden and Index sheets
+    If Sheets(i).Visible = False Then
+    ElseIf Sheets(i).Name = "Index" Then
+    Else
+        ' Set sheet name in index
+        Index.Range("A" & Counter).Value = Sheets(i).Name
+        Counter = Counter + 1
+    End If
+    
+    ' Set sheet description and create hyperlink
+    If Sheets(i).Name = "Summary" Then
+        Index.Range("B" & Counter - 1).Value = "Summary of Data between Vertex, Sage, and Tax Return Data. Return Data has to be manually input for comparison"
+        ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+        Index.Columns.AutoFit
+    ElseIf Sheets(i).Name = "Vertex ET Non Freight" Then
+        Index.Range("B" & Counter - 1).Value = "Pivot of Vertex Data by Invoice Number Excluding Freight Sales"
+        ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+        Index.Columns.AutoFit
+    ElseIf Sheets(i).Name = "Exemption Report" Then
+        Index.Range("B" & Counter - 1).Value = "Database of Customer Exemptions Generated from Vertex Config Report"
+        ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+        Index.Columns.AutoFit
+    ElseIf Sheets(i).Name = "Error Report" Then
+        Index.Range("B" & Counter - 1).Value = "Summary of Variances found between the Vertex and Sage Databases."
+        ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+        Index.Columns.AutoFit
+    ElseIf Sheets(i).Name = "MKTPLCFAC" Then
+        Index.Range("B" & Counter - 1).Value = "Pivot Table of Sage Marketplace Sales"
+        ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+        Index.Columns.AutoFit
+    ElseIf Sheets(i).Name = "Vertex_Nontaxable" Then
+        Index.Range("B" & Counter - 1).Value = "Working Sheet with Pivot of Vertex data compared to related sage data by document number including freight. Data is used to also determine exemption reason."
+        ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+        Index.Columns.AutoFit
+    ElseIf Sheets(i).Name = "Vertex_Gross Compare" Then
+        Index.Range("B" & Counter - 1).Value = "Working Sheet with Pivot of Vertex data compared to related sage data by document number including gross freight comparisons. Data is used in generation of Error Report sheet."
+        ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+        Index.Columns.AutoFit
+    ElseIf Sheets(i).Name = "Vertex Pivot" Then
+        Index.Range("B" & Counter - 1).Value = "Pivots of Vertex Data isolating both gross sales, taxable and exempt (Non taxable + exempt), total tax, and taxable and non-taxable freight for reverse freight taxability lookups. Each pivot is by document number"
+        ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+        Index.Columns.AutoFit
+    ElseIf Sheets(i).Name = "Sage_Gross Compare" Then
+        Index.Range("B" & Counter - 1).Value = "Working Sheet with Pivots of Sage Data combined with freight data and compared with vertex data used in generation of Error Report"
+        ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+        Index.Columns.AutoFit
+    ElseIf Sheets(i).Name = "Sage Pivot" Then
+        Index.Range("B" & Counter - 1).Value = "Pivot of Sage Sales Excluding Marketplace Sales"
+        ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+        Index.Columns.AutoFit
+    ElseIf Sheets(i).Name = "Sage AR Data" Then
+        Index.Range("B" & Counter - 1).Value = "Raw Sage Data downloaded directly from the back end"
+        ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+        Index.Columns.AutoFit
+    ElseIf Sheets(i).Name = "Vertex" Then
+        Index.Range("B" & Counter - 1).Value = "Raw Vertex Data downloaded directly from the vertex portal and filtered for the reconciliation state"
+        ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+        Index.Columns.AutoFit
+    ElseIf Sheets(i).Name = "Credit Report" Then
+        Index.Range("B" & Counter - 1).Value = "Downloaded Vertex Credit Report stored on Dropbox. This report is downloaded and saved monthly"
+        ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+        Index.Columns.AutoFit
+    End If
 Next i
+
 Index.Range("A1").Activate
 
+' Activate the Summary sheet
 Summary.Activate
+
 End Sub
 
-Sub ZD_Create_Sage_Correction_Upload()
+Sub INDEV_Create_Sage_Correction_Upload()
 
 Dim SageCorrect As Worksheet
 Dim Sage_AR_InvoiceNumber As Range
@@ -6137,19 +6300,7 @@ On Error Resume Next
 ActiveWorkbook.SaveAs FileName:=SaveDir & "\" & FileName, FileFormat:=xlWorkbookDefault
 End Sub
 
-Sub ZE_Compare_State()
 
-Set Sage = Sheets("Sage AR Data")
-Set Vertex = Sheets("Vertex")
-
-Sage.Cells(1, WorksheetFunction.CountA(Sage.Range("1:1")) + 1).Value = "Vertex State"
-For i = 2 To WorksheetFunction.CountA(Sage.Range("A:A"))
-Sage.Cells(i, WorksheetFunction.CountA(Sage.Range("1:1"))).Value = WorksheetFunction.XLookup(Sage.Range("EH" & i), Vertex.Range("EX:EX"), Vertex.Range("CE:CE"), "Did not find record", 0)
-
-Next i
-
-
-End Sub
 
 Sub PromptUser()
 
@@ -6182,23 +6333,23 @@ Sub CleanErrorReport()
     Dim ErrorReport As Worksheet
     Dim ShipToState As Range
     Dim ShipToStateRange As Range
-    Dim ShipToStateCol As Long
+    Dim shipToStateCol As Long
     Dim Starting As Long
     Dim Ending As Long
     Dim i As Long
     Application.ScreenUpdating = False
     Set ErrorReport = ActiveWorkbook.Sheets("Error Report")
     Starting = 3 + 1
-    Ending = LastRow(ErrorReport)
-    ShipToStateCol = Application.Match("Ship To State", ErrorReport.Range("3:3"), 0)
-    Set ShipToStateRange = ErrorReport.Range(ErrorReport.Cells(Starting, ShipToStateCol), ErrorReport.Cells(Ending, ShipToStateCol))
+    Ending = lastRow(ErrorReport)
+    shipToStateCol = Application.Match("Ship To State", ErrorReport.Range("3:3"), 0)
+    Set ShipToStateRange = ErrorReport.Range(ErrorReport.Cells(Starting, shipToStateCol), ErrorReport.Cells(Ending, shipToStateCol))
     
     For i = ShipToStateRange.Rows.Count To 4 Step -1
-        Set ShipToState = ErrorReport.Cells(i, ShipToStateCol)
+        Set ShipToState = ErrorReport.Cells(i, shipToStateCol)
         
         If ShipToState.Value = "" Then
             ' Skip blank cells
-        ElseIf CheckState(ShipToState.Value) = False Then
+        ElseIf INDEV_CheckState(ShipToState.Value) = False Then
             ' Delete row if the ShipToState is not in the state list
             ShipToState.EntireRow.Delete
         ElseIf ShipToState.Value = "FL" And ErrorReport.Cells(ShipToState.row, Application.Match("Tax Schedule", ErrorReport.Range("3:3"), 0)).Value = "MKTPLCFAC" Then
@@ -6211,10 +6362,10 @@ Sub CleanErrorReport()
 End Sub
 
 
-Function LastRow(ws As Worksheet) As Long
-    LastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).row
+Function lastRow(ws As Worksheet) As Long
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).row
 End Function
-Function CheckState(str As String) As Boolean
+Function INDEV_CheckState(str As String) As Boolean
     Dim stateList() As Variant
     Dim i As Integer
     Dim matchFound As Boolean
@@ -6230,7 +6381,130 @@ Function CheckState(str As String) As Boolean
         End If
     Next i
     
-    CheckState = matchFound
+    INDEV_CheckState = matchFound
+End Function
+
+
+Sub Step_17_Secondary_SetCellFormat(Range As Range, Format As String)
+    Range.NumberFormat = Format
+End Sub
+
+
+Sub Step_24_Main_State_Spefifics()
+
+Call Format_NY_
+
+End Sub
+
+Function StateAbbreviation(state As String) As String
+    Select Case UCase(state)
+        Case "ARIZONA"
+            StateAbbreviation = "AZ"
+        Case "ALASKA"
+            StateAbbreviation = "AK"
+        Case "ALABAMA"
+            StateAbbreviation = "AL"
+        Case "ARKANSAS"
+            StateAbbreviation = "AR"
+        Case "CALIFORNIA"
+            StateAbbreviation = "CA"
+        Case "COLORADO"
+            StateAbbreviation = "CO"
+        Case "CONNECTICUT"
+            StateAbbreviation = "CT"
+        Case "DISTRICT OF COLUMBIA"
+            StateAbbreviation = "DC"
+        Case "DELAWARE"
+            StateAbbreviation = "DE"
+        Case "FLORIDA"
+            StateAbbreviation = "FL"
+        Case "GEORGIA"
+            StateAbbreviation = "GA"
+        Case "HAWAII"
+            StateAbbreviation = "HI"
+        Case "IOWA"
+            StateAbbreviation = "IA"
+        Case "IDAHO"
+            StateAbbreviation = "ID"
+        Case "ILLINOIS"
+            StateAbbreviation = "IL"
+        Case "INDIANA"
+            StateAbbreviation = "IN"
+        Case "KANSAS"
+            StateAbbreviation = "KS"
+        Case "KENTUCKY"
+            StateAbbreviation = "KY"
+        Case "LOUISIANA"
+            StateAbbreviation = "LA"
+        Case "MASSACHUSETTS"
+            StateAbbreviation = "MA"
+        Case "MARYLAND"
+            StateAbbreviation = "MD"
+        Case "MAINE"
+            StateAbbreviation = "ME"
+        Case "MICHIGAN"
+            StateAbbreviation = "MI"
+        Case "MINNESOTA"
+            StateAbbreviation = "MN"
+        Case "MISSOURI"
+            StateAbbreviation = "MO"
+        Case "MISSISSIPPI"
+            StateAbbreviation = "MS"
+        Case "MONTANA"
+            StateAbbreviation = "MT"
+        Case "NORTH CAROLINA"
+            StateAbbreviation = "NC"
+        Case "NORTH DAKOTA"
+            StateAbbreviation = "ND"
+        Case "NEBRASKA"
+            StateAbbreviation = "NE"
+        Case "NEW HAMPSHIRE"
+            StateAbbreviation = "NH"
+        Case "NEW JERSEY"
+            StateAbbreviation = "NJ"
+        Case "NEW MEXICO"
+            StateAbbreviation = "NM"
+        Case "NEVADA"
+            StateAbbreviation = "NV"
+        Case "NEW YORK"
+            StateAbbreviation = "NY"
+        Case "OHIO"
+            StateAbbreviation = "OH"
+        Case "OKLAHOMA"
+            StateAbbreviation = "OK"
+        Case "OREGON"
+            StateAbbreviation = "OR"
+        Case "PENNSYLVANIA"
+            StateAbbreviation = "PA"
+        Case "PUERTO RICO"
+            StateAbbreviation = "PR"
+        Case "RHODE ISLAND"
+            StateAbbreviation = "RI"
+        Case "SOUTH CAROLINA"
+            StateAbbreviation = "SC"
+        Case "SOUTH DAKOTA"
+            StateAbbreviation = "SD"
+        Case "TENNESSEE"
+            StateAbbreviation = "TN"
+        Case "TEXAS"
+            StateAbbreviation = "TX"
+        Case "UTAH"
+            StateAbbreviation = "UT"
+        Case "VIRGINIA"
+            StateAbbreviation = "VA"
+        Case "VERMONT"
+            StateAbbreviation = "VT"
+        Case "WASHINGTON"
+            StateAbbreviation = "WA"
+        Case "WISCONSIN"
+            StateAbbreviation = "WI"
+        Case "WEST VIRGINIA"
+            StateAbbreviation = "WV"
+        Case "WYOMING"
+            StateAbbreviation = "WY"
+        Case Else
+            StateAbbreviation = "Unknown state"
+    End Select
 End Function
 
 
