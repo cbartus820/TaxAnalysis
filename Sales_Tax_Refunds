@@ -1,0 +1,402 @@
+Public conn As Object
+Public rs As Object
+Sub Prepare_Refund_Upload()
+    ' Variable Declarations
+Dim SQL As String
+Dim InvoiceQuery As String
+Dim DataDump As Worksheet
+Dim UploadSheet As Worksheet
+Dim conn As Object
+Dim rs As New ADODB.Recordset
+Dim ConString As String
+Dim rowCount As Long
+Dim colCount As Long
+
+Dim InvoiceData As Variant
+    
+Dim InvoiceNo As String
+Dim InvoiceDate As String
+Dim InvoiceType As String
+Dim CustomerNo As String
+Dim BillToName As String
+Dim BillToAddress1 As String
+Dim BillToAddress2 As String
+Dim BillToAddress3 As String
+Dim BillToZipCode As String
+Dim BillToCity As String
+Dim BillToState As String
+Dim BillToCountryCode As String
+Dim ShipToName As String
+Dim ShipToAddress1 As String
+Dim ShipToAddress2 As String
+Dim ShipToAddress3 As String
+Dim ShipToZipCode As String
+Dim ShipToCity As String
+Dim ShipToState As String
+Dim ShipToCountryCode As String
+Dim TaxSchedule As String
+Dim TermsCode As String
+Dim ApplyToInvoiceNo As String
+Dim BatchNo As String
+Dim PaymentType As String
+Dim SalesPersonNo As String
+Dim EmailAddress As String
+Dim FreightAmt As String
+Dim UDF_ORDER_MANAGER As String
+Dim LineCode As String
+Dim LineItemType As String
+Dim QuantityOrdered As String
+Dim QuantityShipped As String
+Dim UnitPrice As String
+Dim TaxAmount As String
+Dim BatchNoQuery As String
+Dim TaxDirectionQuery As String
+Dim Tax As String
+Dim rowIndex As Long
+Dim colIndex As Long
+
+
+
+    
+  
+    
+    ' Get Invoice from user
+    InvoiceQuery = InputBox("What Invoice to Adjust Sales Tax?")
+    BatchNoQuery = InputBox("What Sales Invoice BatchNo to Upload too?")
+    TaxDirectionQuery = InputBox("Debit Memo or Credit Memo?")
+    
+    
+  
+    
+    
+    ' Construct SQL Query
+    SQL = "Select * from AR_InvoiceHistoryHeader Where InvoiceNo = '" & InvoiceQuery & "'"
+    ' Debug print SQL Query to check if it's correctly constructed
+    Debug.Print SQL
+    
+    
+    ConString = "DSN=SOTAMAS90; UID=cba; PWD=Huya7; Directory=\\fot00erp\Sage100_2020\MAS90; Prefix=\\fot00erp\Sage100_2020\MAS90\SY\, \\fot00erp\Sage100_2020\MAS90\==\; ViewDLL=\\fot00erp\Sage100_2020\MAS90\HOME; Company=fot; LogFile=\PVXODBC.LOG; CacheSize=4; DirtyReads=1; BurstMode=1; StripTrailingSpaces=1; SERVER=NotTheServer"
+    Set conn = CreateObject("ADODB.Connection")
+    Set rs = New ADODB.Recordset
+    
+  
+       ' Open the connection using the connection string
+    On Error GoTo ErrorHandler
+    conn.Open ConString
+
+    ' Execute the SQL query and open the recordset
+    rs.Open SQL, conn
+
+    ' Check if the recordset has data
+    If Not rs.EOF Then
+        
+        ' Transfer the Recordset to the array using GetRows
+        InvoiceData = rs.GetRows ' Transpose rows into columns automatically
+        
+        ' Data is now in InvoiceData, which is a 2D array [Column, Row]
+        ' Access the data as InvoiceData(column, row)
+    Else
+        MsgBox "No data found for the given invoice.", vbExclamation
+        GoTo CleanUp
+    End If
+   
+
+
+    ' Check if the array has been populated
+    If IsEmpty(InvoiceData) Then
+        MsgBox "Invoice data is empty. Please check the SQL query or sheet data.", vbExclamationConString = "DSN=SOTAMAS90; UID=cba; PWD=Huya7; Directory=\\fot00erp\Sage100_2020\MAS90; Prefix=\\fot00erp\Sage100_2020\MAS90\SY\, \\fot00erp\Sage100_2020\MAS90\==\; ViewDLL=\\fot00erp\Sage100_2020\MAS90\HOME; Company=fot; LogFile=\PVXODBC.LOG; CacheSize=4; DirtyReads=1; BurstMode=1; StripTrailingSpaces=1; SERVER=NotTheServer"
+        Exit Sub
+    End If
+    
+        ' Loop through the array and replace Null values
+    For colIndex = LBound(InvoiceData, 1) To UBound(InvoiceData, 1)
+        For rowIndex = LBound(InvoiceData, 2) To UBound(InvoiceData, 2)
+            If IsNull(InvoiceData(colIndex, rowIndex)) Then
+                InvoiceData(colIndex, rowIndex) = "" ' Replace Null with empty string or any default value
+            End If
+        Next rowIndex
+    Next colIndex
+
+Set UploadSheet = ActiveWorkbook.Sheets.Add
+     
+    UploadSheet.Cells.NumberFormat = "@"
+    'Define Variables
+    InvoiceNo = "C" & Right(InvoiceData(0, 0), 6)
+    InvoiceDate = InvoiceData(4, 0)
+    If TaxDirectionQuery = "Debit Memo" Then
+        InvoiceType = "DM"
+        
+        ElseIf TaxDirectionQuery = "Credit Memo" Then
+        InvoiceType = "CM"
+    
+    End If
+                 
+    CustomerNo = InvoiceData(7, 0)
+    BillToName = InvoiceData(28, 0)
+    BillToAddress1 = InvoiceData(29, 0)
+    BillToAddress2 = InvoiceData(30, 0)
+    BillToAddress3 = InvoiceData(31, 0)
+    BillToZipCode = Left(InvoiceData(34, 0), 5)
+    BillToCity = InvoiceData(32, 0)
+    BillToState = InvoiceData(33, 0)
+    BillToCountryCode = InvoiceData(35, 0)
+    ShipToName = InvoiceData(37, 0)
+    ShipToAddress1 = InvoiceData(38, 0)
+    ShipToAddress2 = InvoiceData(39, 0)
+    ShipToAddress3 = InvoiceData(40, 0)
+    ShipToZipCode = Left(CStr(InvoiceData(43, 0)), 5)
+    ShipToCity = InvoiceData(41, 0)
+    ShipToState = InvoiceData(42, 0)
+    ShipToCountryCode = InvoiceData(44, 0)
+    TaxSchedule = "DEFAULT"
+    TermsCode = InvoiceData(8, 0)
+    ApplyToInvoiceNo = InvoiceData(0, 0)
+    BatchNo = BatchNoQuery
+    PaymentType = InvoiceData(60, 0)
+    SalesPersonNo = InvoiceData(12, 0)
+    EmailAddress = ""
+    FreightAmt = 0
+    UDF_ORDER_MANAGER = InvoiceData(102, 0)
+    
+    For i = 1 To 3
+        If i = 1 Then
+        UploadSheet.Cells(i, 1) = "H"
+        UploadSheet.Cells(i, 2).Value = InvoiceNo
+        UploadSheet.Cells(i, 3).Value = InvoiceDate
+        UploadSheet.Cells(i, 4).Value = InvoiceType
+        UploadSheet.Cells(i, 5).Value = CustomerNo
+        UploadSheet.Cells(i, 6).Value = BillToName
+        UploadSheet.Cells(i, 7).Value = BillToAddress1
+        UploadSheet.Cells(i, 8).Value = BillToAddress2
+        UploadSheet.Cells(i, 9).Value = BillToAddress3
+        UploadSheet.Cells(i, 10).Value = BillToZipCode
+        UploadSheet.Cells(i, 11).Value = BillToCity
+        UploadSheet.Cells(i, 12).Value = BillToState
+        UploadSheet.Cells(i, 13).Value = BillToCountryCode
+        UploadSheet.Cells(i, 14).Value = ShipToName
+        UploadSheet.Cells(i, 15).Value = ShipToAddress1
+        UploadSheet.Cells(i, 16).Value = ShipToAddress2
+        UploadSheet.Cells(i, 17).Value = ShipToAddress3
+        UploadSheet.Cells(i, 18).Value = ShipToZipCode
+        UploadSheet.Cells(i, 19).Value = ShipToCity
+        UploadSheet.Cells(i, 20).Value = ShipToState
+        UploadSheet.Cells(i, 21).Value = ShipToCountryCode
+        UploadSheet.Cells(i, 22).Value = TaxSchedule
+        UploadSheet.Cells(i, 23).Value = TermsCode
+        UploadSheet.Cells(i, 24).Value = ApplyToInvoiceNo
+        UploadSheet.Cells(i, 25).Value = BatchNo
+        UploadSheet.Cells(i, 26).Value = PaymentType
+        UploadSheet.Cells(i, 27).Value = SalesPersonNo
+        UploadSheet.Cells(i, 28).Value = EmailAddress
+        UploadSheet.Cells(i, 29).Value = FreightAmt
+        UploadSheet.Cells(i, 30).Value = UDF_ORDER_MANAGER
+        ElseIf i = 2 Then
+            UploadSheet.Cells(i, 1).Value = "L"
+            UploadSheet.Cells(i, 2).Value = "/TAX-VERTEX"
+            UploadSheet.Cells(i, 3).Value = "1"
+            UploadSheet.Cells(i, 4).Value = "1"
+            If TaxDirectionQuery = "Debit Memo" Then
+            UnitPrice = 1 * InvoiceData(74, 0)
+                UploadSheet.Cells(i, 5).Value = 1 * UnitPrice
+                UploadSheet.Cells(i, 6).Value = "Sales Tax Adjustment applied to invoice " & InvoiceData(0, 0)
+                
+                
+            ElseIf TaxDirectionQuery = "Credit Memo" Then
+                UnitPrice = 1 * InvoiceData(73, 0)
+                UploadSheet.Cells(i, 5).Value = 1 * UnitPrice
+                UploadSheet.Cells(i, 6).Value = "Sales Tax Adjustment applied to invoice " & InvoiceData(0, 0)
+            End If
+        ElseIf i = 3 Then
+            UploadSheet.Cells(i, 1).Value = "L"
+            UploadSheet.Cells(i, 2).Value = "/NONTAX-VERTEX"
+            UploadSheet.Cells(i, 3).Value = "1"
+            UploadSheet.Cells(i, 4).Value = "1"
+             If TaxDirectionQuery = "Debit Memo" Then
+                UnitPrice = 1 * InvoiceData(74, 0)
+                UploadSheet.Cells(i, 5).Value = -1 * UnitPrice
+                UploadSheet.Cells(i, 6).Value = "Sales Tax Adjustment applied to invoice " & InvoiceData(0, 0)
+                
+            ElseIf TaxDirectionQuery = "Credit Memo" Then
+                UnitPrice = 1 * InvoiceData(73, 0)
+                UploadSheet.Cells(i, 5).Value = -1 * UnitPrice
+                UploadSheet.Cells(i, 6).Value = "Sales Tax Adjustment applied to invoice " & InvoiceData(0, 0)
+            End If
+        End If
+                
+        
+    
+    
+    
+    Next i
+CleanUp:
+    ' Clean up recordset and connection
+    If Not rs Is Nothing Then rs.Close
+    If Not conn Is Nothing Then conn.Close
+    Set rs = Nothing
+    Set conn = Nothing
+    Exit Sub
+    
+ErrorHandler:
+    MsgBox "Error: " & Err.description, vbCritical
+    GoTo CleanUp
+    
+End Sub
+
+
+Sub GetSQLDataToSheet(SQLQuery As String, targetSheet As Worksheet)
+    Dim conn As Object
+    Dim rs As Object
+    Dim col As Integer
+    Dim row As Long
+    Dim ConString As String
+    
+    ' Connection string
+    ConString = "DSN=SOTAMAS90; UID=cba; PWD=Huya7; Directory=\\fot00erp\Sage100_2020\MAS90; Prefix=\\fot00erp\Sage100_2020\MAS90\SY\, \\fot00erp\Sage100_2020\MAS90\==\; ViewDLL=\\fot00erp\Sage100_2020\MAS90\HOME; Company=fot; LogFile=\PVXODBC.LOG; CacheSize=4; DirtyReads=1; BurstMode=1; StripTrailingSpaces=1; SERVER=NotTheServer"
+    
+    ' Create new ADODB connection and recordset objects
+    Set conn = CreateObject("ADODB.Connection")
+    Set rs = CreateObject("ADODB.Recordset")
+    
+    ' Open the connection using the connection string
+    On Error GoTo ErrorHandler
+    conn.Open ConString
+    
+    ' Execute the SQL query
+    rs.Open SQLQuery, conn, 3, 1 ' 3=adOpenStatic, 1=adLockReadOnly
+    
+    ' Clear the target sheet before populating data
+    targetSheet.Cells.Clear
+    
+    ' Start writing the data to the worksheet, row by row
+    row = 1
+    col = 1
+    
+    ' Write column headers
+    For col = 1 To rs.Fields.Count
+        targetSheet.Cells(row, col).Value = rs.Fields(col - 1).Name
+    Next col
+    
+    ' Move to the next row for data
+    row = 2
+    
+    ' Write data from the recordset to the worksheet
+    Do While Not rs.EOF
+        For col = 1 To rs.Fields.Count
+            targetSheet.Cells(row, col).Value = rs.Fields(col - 1).Value
+        Next col
+        rs.MoveNext
+        row = row + 1
+    Loop
+    
+    ' Clean up
+    rs.Close
+    conn.Close
+    Set rs = Nothing
+    Set conn = Nothing
+    Exit Sub
+
+ErrorHandler:
+    MsgBox "Error: " & Err.description, vbCritical
+    On Error Resume Next
+    rs.Close
+    conn.Close
+    Set rs = Nothing
+    Set conn = Nothing
+End Sub
+
+
+
+Sub TestConnection()
+    Dim conn As Object
+    Dim ConString As String
+
+    ' Connection string provided
+    ConString = "DSN=SOTAMAS90; UID=cba; PWD=Huya7; Directory=\\fot00erp\Sage100_2020\MAS90; Prefix=\\fot00erp\Sage100_2020\MAS90\SY\, \\fot00erp\Sage100_2020\MAS90\==\; ViewDLL=\\fot00erp\Sage100_2020\MAS90\HOME; Company=fot; LogFile=\PVXODBC.LOG; CacheSize=4; DirtyReads=1; BurstMode=1; StripTrailingSpaces=1; SERVER=NotTheServer"
+    
+    ' Create new ADODB connection object
+    Set conn = CreateObject("ADODB.Connection")
+    
+    ' Open the connection using the connection string
+    On Error GoTo ErrorHandler
+    conn.Open ConString
+    
+    ' Test if connection works
+    MsgBox "Connection Successful"
+    
+    ' Close the connection
+    conn.Close
+    Set conn = Nothing
+    Exit Sub
+
+ErrorHandler:
+    MsgBox "Error: " & Err.description, vbCritical
+    On Error Resume Next
+    conn.Close
+    Set conn = Nothing
+End Sub
+
+Function RecordsetToArray(rs As Object) As Variant
+    Dim resultArray() As Variant
+    Dim rowCount As Long
+    Dim colCount As Long
+    Dim i As Long
+    Dim j As Long
+    
+    ' Only move to the last record if the recordset supports RecordCount
+    If rs.RecordCount > 0 Then
+        rs.MoveLast
+        rowCount = rs.RecordCount
+        rs.MoveFirst ' Move back to the first record
+    Else
+        rowCount = 0 ' Empty recordset
+    End If
+    
+    ' Get the number of columns
+    colCount = rs.Fields.Count
+    
+    ' Resize the array to match the size of the recordset
+    If rowCount > 0 Then
+        ReDim resultArray(1 To rowCount, 1 To colCount)
+    
+        ' Loop through the recordset and populate the array
+        For i = 1 To rowCount
+            For j = 1 To colCount
+                resultArray(i, j) = rs.Fields(j - 1).Value
+            Next j
+            rs.MoveNext
+        Next i
+    Else
+        resultArray = Array() ' Return an empty array if no data
+    End If
+    
+    ' Return the array
+    RecordsetToArray = resultArray
+End Function
+
+Function CopySheetDataToArray(targetSheet As Worksheet)
+    Dim dataArray As Variant
+    Dim lastRow As Long
+    Dim lastCol As Long
+    Dim dataRange As Range
+
+    ' Find the last row and last column of the data in the specified sheet
+    lastRow = targetSheet.Cells(targetSheet.Rows.Count, 1).End(xlUp).row
+    lastCol = targetSheet.Cells(1, targetSheet.Columns.Count).End(xlToLeft).Column
+    
+    ' Define the range of data (from A1 to the last row and column)
+    Set dataRange = targetSheet.Range(targetSheet.Cells(1, 1), targetSheet.Cells(lastRow, lastCol))
+    
+    ' Copy the data into an array
+    dataArray = dataRange.Value
+    
+    ' Test: Print the array contents to the Immediate window (Debug)
+    Dim i As Long, j As Long
+    For i = LBound(dataArray, 1) To UBound(dataArray, 1)
+        For j = LBound(dataArray, 2) To UBound(dataArray, 2)
+            Debug.Print dataArray(i, j)
+        Next j
+    Next i
+    CopySheetDataToArray = dataArray
+End Function
+
+
