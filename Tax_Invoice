@@ -1,0 +1,149 @@
+Option Explicit
+
+Public State_Recon_Book As Workbook
+Public States_To_Process As Workbook
+
+
+Sub ProcessXLSXFiles()
+    Dim folderPath As String
+    Dim latestFile As String
+    Dim latestDate As Date
+    Dim currentFile As String
+    Dim currentFileDate As Date
+    Dim states As Variant ' Change this data type to match your data structure
+    
+    folderPath = "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions" ' Replace with the root folder path
+
+    ' Check if the folder path exists
+    If Dir(folderPath, vbDirectory) = "" Then
+        MsgBox "Root folder not found.", vbExclamation
+        Exit Sub
+    End If
+
+    ' Initialize variables
+    latestFile = ""
+    latestDate = DateSerial(1900, 1, 1)
+    
+    ' Loop through the subfolders to find the latest XLSX file in each state folder
+    Dim stateFolder As String
+    stateFolder = Dir(folderPath & "\*", vbDirectory)
+    Do While stateFolder <> ""
+        If stateFolder <> "." And stateFolder <> ".." Then
+            currentFile = FindLatestXLSXFile(folderPath & "\" & stateFolder)
+            If currentFile <> "" Then
+                currentFileDate = FileDateTime(folderPath & "\" & stateFolder & "\" & currentFile)
+                If currentFileDate > latestDate Then
+                    latestFile = folderPath & "\" & stateFolder & "\" & currentFile
+                    latestDate = currentFileDate
+                End If
+            End If
+        End If
+        stateFolder = Dir
+    Loop
+
+    ' Check if any XLSX file with "Sales Tax Reconciliation" in the name was found
+    If latestFile <> "" Then
+        ' Open the latest XLSX file
+        ' Modify the code below to process the XLSX file as per your requirements
+        Workbooks.Open fileName:=latestFile
+        ' Assign the opened workbook to a variable
+        Dim wb As Workbook
+        Set wb = ActiveWorkbook
+        
+        ' Your processing logic here...
+
+        ' Close the workbook after processing
+        wb.Close SaveChanges:=False
+    Else
+        MsgBox "No XLSX file with 'Sales Tax Reconciliation' in the name was found.", vbExclamation
+    End If
+End Sub
+
+Function FindLatestXLSXFile(ByVal folderPath As String) As String
+    Dim fileName As String
+    Dim latestFile As String
+    Dim latestDate As Date
+    Dim fileDate As Date
+    
+    ' Check if the folder path exists
+    If Dir(folderPath, vbDirectory) = "" Then
+        FindLatestXLSXFile = ""
+        Exit Function
+    End If
+    
+    ' Initialize variables
+    fileName = Dir(folderPath & "\*.xlsx")
+    latestDate = DateSerial(1900, 1, 1)
+    
+    ' Loop through files in the folder
+    Do While fileName <> ""
+        ' Check if the file name contains "Sales Tax Reconciliation"
+        If InStr(1, fileName, "Sales Tax Reconciliation", vbTextCompare) > 0 Then
+            ' Get the file's creation date
+            fileDate = FileDateTime(folderPath & "\" & fileName)
+            
+            ' Check if the current file is more recent than the latest one found so far
+            If fileDate > latestDate Then
+                latestDate = fileDate
+                latestFile = fileName
+            End If
+        End If
+        
+        ' Move to the next file
+        fileName = Dir
+    Loop
+    
+    FindLatestXLSXFile = latestFile
+End Function
+
+
+Function GetLatestSalesTaxFile(ByVal folderPath As String) As String
+    Dim fileName As String
+    Dim latestFile As String
+    Dim latestDate As Date
+    Dim fileDate As Date
+    
+    ' Check if the folder path exists
+    If Dir(folderPath, vbDirectory) = "" Then
+        GetLatestSalesTaxFile = "Folder not found"
+        Exit Function
+    End If
+    
+    ' Initialize variables
+    fileName = Dir(folderPath & "\*.xls*")
+    latestDate = DateSerial(1900, 1, 1)
+    
+    ' Loop through files in the folder
+    Do While fileName <> ""
+        ' Check if the file name contains "Sales Tax Reconciliation"
+        If InStr(1, fileName, "Sales Tax Reconciliation", vbTextCompare) > 0 Then
+            ' Get the file's creation date
+            fileDate = FileDateTime(folderPath & "\" & fileName)
+            
+            ' Check if the current file is more recent than the latest one found so far
+            If fileDate > latestDate Then
+                latestDate = fileDate
+                latestFile = fileName
+            End If
+        End If
+        
+        ' Move to the next file
+        fileName = Dir
+    Loop
+    
+    ' Check if any file with "Sales Tax Reconciliation" in the name was found
+    If latestFile <> "" Then
+        GetLatestSalesTaxFile = folderPath & "\" & latestFile
+    Else
+        GetLatestSalesTaxFile = "No file found"
+    End If
+End Function
+
+Function StateOffersDiscount()
+
+
+
+
+
+End Sub
+
