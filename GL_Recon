@@ -67,7 +67,7 @@ Dim GL_EndDate As String
 
 ' Objects to connect to ERP System Back End
 Dim ODBC_Connection_String As String
-Dim ODBC_Connection As ADODB.Connection
+Dim ODBC_Connection As ADODB.connection
 Dim ODBC_RecordSet As ADODB.Recordset
 Dim ODBC_RecordSet2 As ADODB.Recordset
 
@@ -148,7 +148,7 @@ AR_HistoryHeader_SQL = "SELECT * FROM AR_InvoiceHistoryHeader Where transactiond
 ODBC_Connection_String = "DRIVER={MAS 90 4.0 ODBC Driver};Description=MAS 90 4.0 ODBC Driver;Directory=\\fot00erp\Sage100_2020\MAS90;Prefix=\\fot00erp\Sage100_2020\MAS90\SY\, \\fot00erp\Sage100_2020\MAS90\==\;ViewDLL=\\fot00erp\Sage100_2020\MAS90\HOME;LogFile=\PVXODBC.LOG;CacheSize=4;DirtyReads=1;BurstMode=1;StripTrailingSpaces=1;SERVER=NotTheServer"
 
 ' Open a new database connection based on the defined database connection string
-Set ODBC_Connection = New ADODB.Connection
+Set ODBC_Connection = New ADODB.connection
 ODBC_Connection.Open ODBC_Connection_String
 
 ' Open a new Record Set querrying the database with the GL Data SQL Querry
@@ -157,7 +157,7 @@ ODBC_RecordSet.Open GL_Posting_SQL, ODBC_Connection
 
 'Populate the GL Data Worksheet with the data querried from the system:
 With GL_Datasheet.QueryTables.Add( _
-Connection:=ODBC_RecordSet, _
+connection:=ODBC_RecordSet, _
 Destination:=GL_Datasheet.Range("A1"))
 
     .Name = "GL Details " & Format(Tax_GL_Recon.StartDate.Value, "yyyy-mm")
@@ -186,7 +186,7 @@ ODBC_RecordSet2.Open AR_HistoryHeader_SQL, ODBC_Connection
 'Populate the AR History worksheet with the data querried from the system:
 
 With AR_InvoiceHeader.QueryTables.Add( _
-Connection:=ODBC_RecordSet2, _
+connection:=ODBC_RecordSet2, _
 Destination:=AR_InvoiceHeader.Range("A1"))
 
     .Name = "AR Invoice Details " & Format(Tax_GL_Recon.StartDate.Value, "yyyy-mm")
@@ -223,7 +223,7 @@ Sage_AR_LastCol = WorksheetFunction.CountA(AR_InvoiceHeader.Range("1:1"))
 
 'Define the various range objects to reference in data interpetation from the AR History Sheet:
 
-Set Sage_AR_InvoiceNo = AR_InvoiceHeader.Range(AR_InvoiceHeader.Cells(1, AR_InvoiceHeader.Cells.Find("InvoiceNo", MatchCase:=True, LookIn:=xlValues, LookAt:=xlWhole).Column), AR_InvoiceHeader.Cells(Sage_AR_LastRow, AR_InvoiceHeader.Cells.Find("InvoiceNo", MatchCase:=True, LookIn:=xlValues, LookAt:=xlWhole).Column))
+Set Sage_AR_InvoiceNo = AR_InvoiceHeader.Range(AR_InvoiceHeader.Cells(1, AR_InvoiceHeader.Cells.Find("InvoiceNo", MatchCase:=True, LookIn:=xlValues, lookat:=xlWhole).Column), AR_InvoiceHeader.Cells(Sage_AR_LastRow, AR_InvoiceHeader.Cells.Find("InvoiceNo", MatchCase:=True, LookIn:=xlValues, lookat:=xlWhole).Column))
 Set Sage_AR_TransactionDate = AR_InvoiceHeader.Range(AR_InvoiceHeader.Cells(1, AR_InvoiceHeader.Cells.Find("TransactionDate").Column), AR_InvoiceHeader.Cells(Sage_AR_LastRow, AR_InvoiceHeader.Cells.Find("TransactionDate").Column))
 Set Sage_AR_Tax = AR_InvoiceHeader.Range(AR_InvoiceHeader.Cells(1, AR_InvoiceHeader.Cells.Find("SalesTaxAmt").Column), AR_InvoiceHeader.Cells(Sage_AR_LastRow, AR_InvoiceHeader.Cells.Find("SalesTaxAmt").Column))
 Set Sage_AR_RegisterNo = AR_InvoiceHeader.Range(AR_InvoiceHeader.Cells(1, AR_InvoiceHeader.Cells.Find("JournalNoGLBatchNo").Column), AR_InvoiceHeader.Cells(Sage_AR_LastRow, AR_InvoiceHeader.Cells.Find("JournalNoGLBatchNo").Column))
@@ -293,7 +293,10 @@ For i = 1 To UBound(AR_Data_Array, 1)
 AR_Data_Array(i, Sage_AR_LastCol + 1) = Format(CStr(AR_Data_Array(i, 22)), "000000") & "|" & CStr(AR_Data_Array(i, 8)) & "|" & Format(CStr(AR_Data_Array(i, 77) * 1), "0.00")
 Next i
 
+
+
 AR_InvoiceHeader.Range(AR_InvoiceHeader.Cells(2, 1), AR_InvoiceHeader.Cells(Sage_AR_LastRow, Sage_AR_LastCol + 1)).Value = AR_Data_Array
+
 
 
 ' Define Data Array for GL Data
@@ -476,8 +479,8 @@ GL_Entry.Cells(Counter, 5).Value = AccountKeySTP
 GL_Entry.Cells(Counter + 1, 5).Value = AccountKey2
 
 ' on the Entry Sheet, with the row number being based on the value of counter, modify the value in column F to be Reclassify Invoice to <state> Sales Tax Payable: <invoiceno> and the subsequent next row to be the same
-GL_Entry.Cells(Counter, 6).Value = "Reclassify Invoice to " & State & " Sales Tax Payable: " & GL_Datasheet.Cells(i, Sage_GL_DocumentNo.Column).Value
-GL_Entry.Cells(Counter + 1, 6).Value = "Reclassify Invoice to " & State & " Sales Tax Payable: " & GL_Datasheet.Cells(i, Sage_GL_DocumentNo.Column).Value
+GL_Entry.Cells(Counter, 6).Value = "Reclassify Invoice to " & State & " Sales Tax Payable: " & Format(GL_Datasheet.Cells(i, Sage_GL_DocumentNo.Column).Value, "0000000")
+GL_Entry.Cells(Counter + 1, 6).Value = "Reclassify Invoice to " & State & " Sales Tax Payable: " & Format(GL_Datasheet.Cells(i, Sage_GL_DocumentNo.Column).Value, "0000000")
 
 'Check whether the net impact of a particular invoice no in sales tax payable is a net debit or net credit to the account, the amount column is defined as credits minus debts, thus if a value is negative, its a net debit, if its positive a net credit.
 If InvoiceTotal < 0 Then
@@ -630,7 +633,7 @@ Set GLDetail = GLBook.PivotCaches.Create( _
 
 Set GL_Pivot = GLDetail.CreatePivotTable( _
     TableDestination:=PivotSheet.Range("A5"), _
-    TableName:="GL_Details")
+    tableName:="GL_Details")
     
     
 Set State = GL_Pivot.PivotFields("State")
@@ -638,7 +641,7 @@ Set Amount = GL_Pivot.PivotFields("Amount")
 Set Trn_Type = GL_Pivot.PivotFields("Type")
 Set PostDate = GL_Pivot.PivotFields("PostingDate")
 
-PostDate.Group Start:=True, End:=True, Periods:=Array(False, False, False, False, True, False, False)
+PostDate.Group start:=True, End:=True, Periods:=Array(False, False, False, False, True, False, False)
 
 State.Orientation = xlRowField
 Trn_Type.Orientation = xlRowField
