@@ -11,7 +11,7 @@ Public ReconState As String 'Define variable for State to be reconciled for sage
 Public i As Integer 'Defined looping variable used in many many places throughout the scriptings
 
 'Sage Queries - Objects used within data dumps from ERP
-Public Conn As New ADODB.Connection ' Variable for ADODB SQL Querry into Sage to download Sage Data
+Public conn As New ADODB.connection ' Variable for ADODB SQL Querry into Sage to download Sage Data
 Public Recset As New ADODB.Recordset ' Variable to define a recordset to store the data querried from Sage
 Public SQL As String ' Variable to hold the SQL querry in string form
 Public ConString As String 'Variable to hold DNS information for the ODCB database connection
@@ -291,7 +291,7 @@ Public Vertex_Inv_Tax As String
 Public VT_TAXJUR As PivotField
 Public Colorado_HR As Workbook
 Public Homerule As Worksheet
-Public CO_HomeRule_Conn As ADODB.Connection
+Public CO_HomeRule_Conn As ADODB.connection
 Public Vertex_Tax_COHR As PivotTable
 Public VTC_TAXJUR As PivotField
 Public VTC_TAXCity As PivotField
@@ -522,10 +522,10 @@ Sub Step_02_Main_Call_Recon_Subroutines()
 'This subroutine acts as the main control point for executing the reconciliation process by calling different subroutines in a specific order
 
 'For Calculation Speed Set Screen Updating to be False
- '   Application.ScreenUpdating = False
+Application.ScreenUpdating = False
     
 'Ensure Automatic Calculation is enabled
-    Application.Calculation = xlAutomatic
+Application.Calculation = xlAutomatic
     
 'Declare Workbook Variable for future use
 Set Taxbook = Vertex_Extract
@@ -536,6 +536,7 @@ Set Taxbook = Vertex_Extract
     Set TimeToComplete = Taxbook.Sheets.Add
     TimeToComplete.Name = "Script Metrics"
     TimeToComplete.Visible = False
+       
 
 'Create Blank Worksheets for tabs; Summary; Sage;SagePivot, Vertex Pivot, MKTPLCFAC, Error Report, Zipcodes, and credit report
 'originally intended to create all sheets within the reconciliation file, as additional revisions and improvements and added features were implimented to the code, some subroutines still create their own worksheets
@@ -543,6 +544,12 @@ Set Taxbook = Vertex_Extract
     Call Step_03_Main_CreateWorksheets
     Step_02_Secondary_Record_Execution_Time TimeToComplete, 2, "Step_03_Main_CreateWorksheets", StartTime, Timer
     StartTime = Timer
+
+If ReconState = "CO" Or ReconState = "COLORADO" Or ReconState = "Colorado" Then
+    Call Step_01_Secondary_Import_CO_BranchIDs
+    
+End If
+
 
 'Imports a Zipcode Database CSV file, originally intended to help with the populating of tax returns, the use of the zipcode database is unfortunately depreciated but the code has been retained in case it is revisited
     Call Step_04_Main_Import_Zipcode_Database
@@ -642,7 +649,23 @@ Set Taxbook = Vertex_Extract
 
     ' Finalize your main procedure
     Application.ScreenUpdating = True
-    
+  
+
+Sheets("Vertex ET Non Freight").Visible = False
+Sheets("Restocking Fees").Visible = False
+Sheets("MKTPLCFAC").Visible = False
+
+Call Step_24_Main_CustExemptions
+
+'Create an Index of Tabs within the document
+Call Step_25_Main_Create_Index_Of_Sheets
+Step_02_Secondary_Record_Execution_Time TimeToComplete, 21, "Create_Index", StartTime, Timer
+StartTime = Timer
+
+Call Step_26_Main_State_Spefifics
+
+Call Step_27_Main_Format_Invoice_Upload
+
     If Round(Summary.Range("E4").Value, 2) <> Round(Summary.Range("G4").Value, 2) _
 Or Round(Summary.Range("E5").Value, 2) <> Round(Summary.Range("G5").Value, 2) _
 Or Round(Summary.Range("E6").Value, 2) <> Round(Summary.Range("G6").Value, 2) _
@@ -657,20 +680,8 @@ Else
     End If
 End If
 
-Sheets("Vertex ET Non Freight").Visible = xlSheetVeryHidden
-Sheets("Restocking Fees").Visible = xlSheetVeryHidden
-Sheets("MKTPLCFAC").Visible = xlSheetVeryHidden
+Application.ScreenUpdating = True
 
-Call Step_24_Main_CustExemptions
-
-'Create an Index of Tabs within the document
-Call Step_25_Main_Create_Index_Of_Sheets
-Step_02_Secondary_Record_Execution_Time TimeToComplete, 21, "Create_Index", StartTime, Timer
-StartTime = Timer
-
-Call Step_26_Main_State_Spefifics
-
-Call Step_27_Main_Format_Invoice_Upload
     
 End Sub
 Sub Step_03_Main_CreateWorksheets()
@@ -726,7 +737,6 @@ Sub Step_03_Main_CreateWorksheets()
 
 
 Set Vertex = ActiveSheet
-    On Error Resume Next
     Vertex.Name = "Vertex"
     Vertex.Activate
     Vertex.Range("A2").Select
@@ -775,16 +785,21 @@ If User_Interface.CheckBox1 = True Then
     openfilename = DropboxDir & "Multi-State Sales Tax\Vertex\Vertex - Credit Report\" & Format(EndDate, "YYYY-MM") & " FOT_Credits_And_Adjustments.csv"
     
     With Taxbook
-        Sheets.Add After:=ActiveWorkbook.Sheets("Vertex")
+        Sheets.Add after:=ActiveWorkbook.Sheets("Vertex")
         Set creditreport = ActiveSheet
         creditreport.Name = "Credit Report"
     End With
     
-    With creditreport.QueryTables.Add(Connection:="Text;" & openfilename, Destination:=creditreport.Range("A1"))
+    With creditreport.QueryTables.Add(connection:="Text;" & openfilename, Destination:=creditreport.Range("A1"))
+    On Error GoTo Code02
         .TextFileParseType = xlDelimited
         .TextFileCommaDelimiter = True
         .Refresh
+        
+Code02:         MsgBox ("Credit Report missing from archive, download and save credit report:C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Vertex\Vertex - Credit Report")
     End With
+    On Error GoTo 0
+    
 End If
 
 End Sub
@@ -797,7 +812,7 @@ Dim Exemption_Reason_Pivot_Cache As PivotCache
 Dim Exemption_Range As Range
 Dim Exemption_Pivots As PivotTable
 Dim County As PivotField
-Dim city As PivotField
+Dim City As PivotField
 Dim Exemption_Reason As PivotField
 Dim Exemp_VGA As PivotField
 Dim Exemp_VNTA As PivotField
@@ -806,13 +821,13 @@ Dim Exemp_VGNA As PivotField
 Dim Exemption_Pivot_Sheet As Worksheet
 
 'Create Worksheet to Hold Data for Pivot Table
-Set Exemption_Pivot = Taxbook.Sheets.Add(After:=Taxbook.Sheets("Summary"))
+Set Exemption_Pivot = Taxbook.Sheets.Add(after:=Taxbook.Sheets("Summary"))
 
 'Rename the Sheet to reference its purpose
 Exemption_Pivot.Name = "Exemption Pivot Data"
 
 'Copy Rows from Vertex_NonTax_Compare PivotTable
-Vertex_NonTax_Compare.Range("A" & Vertex_NonTax_Compare.Cells.Find("Trimmed Invoice No", After:=Vertex_NonTax_Compare.Range("A1")).row & ":T" & WorksheetFunction.CountA(Vertex_NonTax_Compare.Range("A:A")) + 1).Copy
+Vertex_NonTax_Compare.Range("A" & Vertex_NonTax_Compare.Cells.Find("Trimmed Invoice No", after:=Vertex_NonTax_Compare.Range("A1")).row & ":T" & WorksheetFunction.CountA(Vertex_NonTax_Compare.Range("A:A")) + 1).Copy
 
 'Paste the Rows into the created datasheet
 Exemption_Pivot.Range("A1").PasteSpecial (xlPasteAll)
@@ -821,7 +836,7 @@ Exemption_Pivot.Range("A1").PasteSpecial (xlPasteAll)
 Set Exemption_Range = Exemption_Pivot.UsedRange
 
 'Create a Sheet to store the pivot table on
-Set Exemption_Pivot_Sheet = Taxbook.Sheets.Add(After:=Taxbook.Sheets("Summary"))
+Set Exemption_Pivot_Sheet = Taxbook.Sheets.Add(after:=Taxbook.Sheets("Summary"))
 
 'Rename the Pivot Table Sheet to reflect its purpose
 Exemption_Pivot_Sheet.Name = "Exemptions Report"
@@ -834,7 +849,7 @@ Set Exemption_Reason_Pivot_Cache = Taxbook.PivotCaches.Create( _
     
 'Create a Pivot Table from the created cache
 Set Exemption_Pivots = Exemption_Reason_Pivot_Cache.CreatePivotTable(TableDestination:=Exemption_Pivot_Sheet.Range("A1"), _
-TableName:="Exemption_Pivots")
+tableName:="Exemption_Pivots")
 
 'Format the Pivot Table in tabular format
 Exemption_Pivots.RowAxisLayout xlTabularRow
@@ -967,6 +982,8 @@ Public Sub Step_05_Main_Import_Sage_Data()
 
     ' Execute the query and load data into the worksheet
     Step_05_Secondary_LoadData
+    
+    Call Step_05_Secondary_Create_Table
 
 End Sub
 
@@ -1041,13 +1058,13 @@ End If
 End Sub
 
 Private Sub Step_05_Secondary_LoadData()
-    Dim Conn As New ADODB.Connection
+    Dim conn As New ADODB.connection
     Dim Recset As New ADODB.Recordset
     Dim i As Long
 
-    Conn.Open ConString
+    conn.Open ConString
     Set Recset = New ADODB.Recordset
-    Recset.Open SQL, Conn
+    Recset.Open SQL, conn
     
     With Recset
         If Not .EOF Then
@@ -1065,12 +1082,32 @@ Private Sub Step_05_Secondary_LoadData()
     End With
 
     Recset.Close
-    Conn.Close
+    conn.Close
     Sage.Columns.AutoFit
 
     Step_05_Secondary_Format_Columns
+    
+    
+   Call Create_Table("Sage_ERP_Data", Sage.Name)
+    
+    
 End Sub
 
+Private Sub Step_05_Secondary_Create_Table()
+    Dim ws As Worksheet
+    Dim tbl As ListObject
+    Dim rng As Range
+    Dim tableName As String
+
+    Set ws = Sage
+    Set rng = Sage.UsedRange
+    tableName = "Sage_ERP_Data"
+    
+    On Error Resume Next
+    Set tbl = ws.ListObjects.Add(xlSrcRange, rng, , xlYes)
+    tbl.Name = tableName
+    On Error GoTo 0
+End Sub
 
 
 Private Sub Step_05_Secondary_Format_Columns()
@@ -1099,7 +1136,7 @@ Sub Step_07_Main_Convert_Invoice_Numbers()
 
     ' Add "Trimmed Invoice No" column to Vertex and populate it
     With Vertex
-
+        Vertex.Activate
         V_Last_Col = .Cells(1, .Columns.Count).End(xlToLeft).Column
         V_Last_Row = .Cells(.Rows.Count, .Cells.Find("Transaction ID").Column).End(xlUp).row
         .Cells(1, V_Last_Col + 1).Value = "Trimmed Invoice No"
@@ -1225,7 +1262,7 @@ Dim DestRange As Range
 If User_Interface.Toggle_SalesTax_In_Gross.Value = True Then
 
 
-Application.Calculation = xlCalculationManual
+
 
 ' Set A range for the pivot table
 Set DestRange = Sage_Pivot.Range("A5")
@@ -1238,7 +1275,7 @@ Set Sage_Data_Cache = Taxbook.PivotCaches.Create( _
 'Create the pivot table from the Pivot Table Data Cache
 Set Sage_Data = Sage_Data_Cache.CreatePivotTable( _
     TableDestination:=Sage_Pivot.Range("A5"), _
-    TableName:="Sage_Sales_Data")
+    tableName:="Sage_Sales_Data")
     
 'Define the Pivotfields
 Set S_T_InvoiceNo_PF = Sage_Data.PivotFields("Trimmed Invoice No")
@@ -1297,7 +1334,7 @@ Sage_Gross.Name = "Sage_Gross Compare"
 'Create another pivot cache for a Sage Pivot Table
 Set Sage_Gross_Pivot = Sage_Data_Cache.CreatePivotTable( _
     TableDestination:=Sage_Gross.Range("A5"), _
-    TableName:="Sage_GrossSales_Data")
+    tableName:="Sage_GrossSales_Data")
     
 ' Define Pivotfields
 Set SGP_InvoiceNo_PF = Sage_Gross_Pivot.PivotFields("Trimmed Invoice No")
@@ -1343,7 +1380,7 @@ Else 'If Sales tax isn't included in gross sales then
 
 'Create a Pivot Table of Sage Sales Data for comparison (excludes marketplace originated sales)
 
-Application.Calculation = xlCalculationManual
+
 
 ' Set A range for the pivot table
 Set DestRange = Sage_Pivot.Range("A5")
@@ -1356,7 +1393,7 @@ Set Sage_Data_Cache = Taxbook.PivotCaches.Create( _
 'Create a Sage Data Pivot Table
 Set Sage_Data = Sage_Data_Cache.CreatePivotTable( _
     TableDestination:=Sage_Pivot.Range("A5"), _
-    TableName:="Sage_Sales_Data")
+    tableName:="Sage_Sales_Data")
 
 'Define Pivot Fields
 Set S_T_InvoiceNo_PF = Sage_Data.PivotFields("Trimmed Invoice No")
@@ -1426,7 +1463,7 @@ ActiveWindow.FreezePanes = True
 'Create a pivot table of the Sage data
 Set Sage_Gross_Pivot = Sage_Data_Cache.CreatePivotTable( _
     TableDestination:=Sage_Gross.Range("A5"), _
-    TableName:="Sage_GrossSales_Data")
+    tableName:="Sage_GrossSales_Data")
     
 'Define the pivot fields
 Set SGP_InvoiceNo_PF = Sage_Gross_Pivot.PivotFields("Trimmed Invoice No")
@@ -1490,13 +1527,13 @@ Sub Step_11_Main_Create_Vertex_Gross_Pivots()
 
 'If Sales Tax Is to be included in sales amounts then:
 If User_Interface.Toggle_SalesTax_In_Gross.Value = True Then
-    Application.Calculation = xlCalculationAutomatic
+    
     Vertex_Pivot.Range("A4").Value = "Pivot of Vertex Sales Data for State level only to compare gross sales figures between datasets"
 
     'Create a Pivot Table from the Vertex Data Cache
     Set Vertex_Data = Vertex_Data_Cache.CreatePivotTable( _
     TableDestination:=Vertex_Pivot.Range("A5"), _
-    TableName:="Vertex_Sales_Data")
+    tableName:="Vertex_Sales_Data")
 
     'Define Pivotfields
     Set V_Imposition_Type = Vertex_Data.PivotFields("Imposition Type")
@@ -1567,7 +1604,7 @@ If User_Interface.Toggle_SalesTax_In_Gross.Value = True Then
     'Create a Second Pivot Table in a new sheet called "Vertex_Gross_Compare"
     Set Vertex_Gross_Pivot = Vertex_Data_Cache.CreatePivotTable( _
         TableDestination:=Vertex_Gross_Sheet.Range("A5"), _
-        TableName:="Vertex_GrossSales_Data")
+        tableName:="Vertex_GrossSales_Data")
         
     'Define Pivotfields for the second pivot table
     On Error Resume Next
@@ -1643,7 +1680,7 @@ If User_Interface.Toggle_SalesTax_In_Gross.Value = True Then
     
     Set Vertex_NonTaxable_Pivot = Vertex_Data_Cache.CreatePivotTable( _
         TableDestination:=Vertex_NonTax_Compare.Range("A5"), _
-        TableName:="Vertex_NonTax_Sales_Data")
+        tableName:="Vertex_NonTax_Sales_Data")
 
     Vertex_NonTaxable_Pivot.RowAxisLayout xlTabularRow
     Vertex_NonTaxable_Pivot.RepeatAllLabels xlRepeatLabels
@@ -1767,7 +1804,7 @@ If User_Interface.Toggle_SalesTax_In_Gross.Value = True Then
         Vertex_NonTaxable_Pivot.PivotSelect "Vertex_Gross Nontaxable", xlDataAndLabel
         Set Lookup_Vertex_Exempt_Exempt = Selection
         Vertex_NonTaxable_Pivot.PivotFields("Trimmed Invoice No").dataRange.Select
-        Selection.Offset(Rowoffset:=-1).Select
+        Selection.offset(Rowoffset:=-1).Select
         Selection.Resize(RowSize:=WorksheetFunction.CountA(Selection) + 2).Select
         Set Lookup_Vertex_Exempt_InvoiceNo = Selection
     
@@ -1776,13 +1813,13 @@ If User_Interface.Toggle_SalesTax_In_Gross.Value = True Then
 Else ' If Sales Tax Is Not included in Gross Sales then:
 
     'Create a pivot table of vertex sales, filtered by state and imposition type general sales and use tax with invoice number as the primary key
-        Application.Calculation = xlCalculationAutomatic
+        
     'Label the Pivot Table with Information about its composition
         Vertex_Pivot.Range("A4").Value = "Pivot of Vertex Sales Data for State level only to compare gross sales figures between datasets by document number (Does not Work for States with No State Tax)"
     'Create a Pivot Table from the Vertex Data Cache
         Set Vertex_Data = Vertex_Data_Cache.CreatePivotTable( _
             TableDestination:=Vertex_Pivot.Range("A5"), _
-            TableName:="Vertex_Sales_Data")
+            tableName:="Vertex_Sales_Data")
     
   'Define Pivotfields
   
@@ -1875,7 +1912,7 @@ Else ' If Sales Tax Is Not included in Gross Sales then:
     
     Set Vertex_Gross_Pivot = Vertex_Data_Cache.CreatePivotTable( _
         TableDestination:=Vertex_Gross_Sheet.Range("A5"), _
-        TableName:="Vertex_GrossSales_Data")
+        tableName:="Vertex_GrossSales_Data")
         
     'Define Pivotfields
     On Error Resume Next
@@ -1972,7 +2009,7 @@ Else ' If Sales Tax Is Not included in Gross Sales then:
 
     Set Vertex_NonTaxable_Pivot = Vertex_Data_Cache.CreatePivotTable( _
         TableDestination:=Vertex_NonTax_Compare.Range("A5"), _
-        TableName:="Vertex_NonTax_Sales_Data")
+        tableName:="Vertex_NonTax_Sales_Data")
      
  'Modify the Pivot Table Settings to be tabular layout and to repeat label rows.
     Vertex_NonTaxable_Pivot.RowAxisLayout xlTabularRow
@@ -2098,7 +2135,7 @@ Else ' If Sales Tax Is Not included in Gross Sales then:
     Vertex_NonTaxable_Pivot.PivotSelect "Vertex_Gross Nontaxable", xlDataAndLabel
     Set Lookup_Vertex_Exempt_Exempt = Selection
     Vertex_NonTaxable_Pivot.PivotFields("Trimmed Invoice No").dataRange.Select
-    Selection.Offset(Rowoffset:=-1).Select
+    Selection.offset(Rowoffset:=-1).Select
     Selection.Resize(RowSize:=WorksheetFunction.CountA(Selection) + 2).Select
     Set Lookup_Vertex_Exempt_InvoiceNo = Selection
 End If
@@ -2144,7 +2181,7 @@ Sub Step_10_Main_Create_Vertex_Freight_Sales_Pivot()
     'Create the PivotTable from the Vertex Data Cache
         Set Vertex_Freight_Sales = Vertex_Data_Cache.CreatePivotTable( _
             TableDestination:=Vertex_Pivot.Range("N5"), _
-            TableName:="Vertex_Freight_Sales_Data")
+            tableName:="Vertex_Freight_Sales_Data")
 
     'Set PivotFields
         Set VFS_InvoiceNo = Vertex_Freight_Sales.PivotFields("Trimmed Invoice No")
@@ -2314,11 +2351,11 @@ Sub Step_12_Main_Create_Vertex_Tax_Pivot()
 ' Create Vertex Pivot Tables from Vertex Pivot Caches
 Set Vertex_Tax_COHR = Vertex_Data_Cache.CreatePivotTable( _
     TableDestination:=Homerule.Range("A5"), _
-    TableName:="Vertex_HRTax_Data")
+    tableName:="Vertex_HRTax_Data")
         
 Set Vertex_Tax = Vertex_Data_Cache.CreatePivotTable( _
     TableDestination:=Vertex_Pivot.Range("I5"), _
-    TableName:="Vertex_Tax_Data")
+    tableName:="Vertex_Tax_Data")
          
 ' Define Pivot Fields for Vertex Tax Pivot
 Set VT_FlexCode05 = Vertex_Tax.PivotFields("Flex Code 5")
@@ -2386,7 +2423,7 @@ Else
 Vertex_Pivot.Range("I4").Value = "Pivot of total tax charged (local and state) by related invoice txn no."
 Set Vertex_Tax = Vertex_Data_Cache.CreatePivotTable( _
     TableDestination:=Vertex_Pivot.Range("I5"), _
-    TableName:="Vertex_Tax_Data")
+    tableName:="Vertex_Tax_Data")
     
 Set VT_FlexCode05 = Vertex_Tax.PivotFields("Flex Code 5")
 Set VT_Imposition_Type = Vertex_Tax.PivotFields("Imposition Type")
@@ -2401,7 +2438,7 @@ End If
 Vertex_Pivot.Activate
 
 Vertex_Tax.PivotSelect "Vertex Tax", xlDataAndLabel
-Selection.Offset(Rowoffset:=-1).Select
+Selection.offset(Rowoffset:=-1).Select
 Selection.Resize(RowSize:=WorksheetFunction.CountA(Selection) + 1).Select
 Set Lookup_Vertex_Tax_Tax = Selection
 Vertex_Tax.rowRange.Select
@@ -2426,7 +2463,7 @@ If User_Interface.Toggle_SalesTax_In_Gross.Value = True Then
 'Create a Pivot Table from Sage Data Cache
 Set MktplcPiv = Sage_Data_Cache.CreatePivotTable( _
     TableDestination:=Mktplc.Range("A5"), _
-    TableName:="Sage_Mktplc_Sales_Data")
+    tableName:="Sage_Mktplc_Sales_Data")
     
 'Define Pivot Fields
     
@@ -2493,7 +2530,7 @@ Else ' If Tax is not to be included in gross sales then...
 'Create a pivot table from sage pivot data cache
 Set MktplcPiv = Sage_Data_Cache.CreatePivotTable( _
     TableDestination:=Mktplc.Range("A5"), _
-    TableName:="Sage_Mktplc_Sales_Data")
+    tableName:="Sage_Mktplc_Sales_Data")
     
 'Define Pivotfields
 
@@ -3443,7 +3480,7 @@ For i = VertexCompareStart To VertexEnd
     Error_Report.Range("B" & i).Value = "=xlookup(A" & i & ",'Sage AR Data'!" & Lookuplocation & ",'Sage AR Data'!$E:$E," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     Error_Report.Range("B" & i).NumberFormat = "mm/dd/yyyy"
             Set LinkCell = Error_Report.Range("A" & i)
-            LinkAddress = Sheets("Vertex_Gross Compare").Cells.Find(Error_Report.Range("A" & i)).Address(external:=True)
+            LinkAddress = Sheets("Vertex_Gross Compare").Cells.Find(Error_Report.Range("A" & i)).Address(External:=True)
             LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
             LinkCell.Select
             ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
@@ -3764,22 +3801,22 @@ Error_Report.Range("K" & Error_Report.Cells.Find("Sage Gross Sales", Error_Repor
 Error_Report.Range("L" & Error_Report.Cells.Find("Sage Gross Sales", Error_Report.Range("A1")).row).Value = "Ship To Address 3"
 Error_Report.Range("M" & Error_Report.Cells.Find("Sage Gross Sales", Error_Report.Range("A1")).row).Value = "Exemption Reason"
 
-HeaderEnd = Error_Report.Cells.Find("Trimmed Invoice Number", After:=Error_Report.Range("A1")).row
+HeaderEnd = Error_Report.Cells.Find("Trimmed Invoice Number", after:=Error_Report.Range("A1")).row
 
 
 
-Error_Report.Range("B" & Error_Report.Cells.Find("Trimmed Invoice Number", After:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Invoice Date"
-Error_Report.Range("C" & Error_Report.Cells.Find("Trimmed Invoice Number", After:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Customer No."
-Error_Report.Range("D" & Error_Report.Cells.Find("Trimmed Invoice Number", After:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Customer Name"
-Error_Report.Range("E" & Error_Report.Cells.Find("Trimmed Invoice Number", After:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Ship To State"
-Error_Report.Range("F" & Error_Report.Cells.Find("Trimmed Invoice Number", After:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Ship to ZipCode"
-Error_Report.Range("G" & Error_Report.Cells.Find("Trimmed Invoice Number", After:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Tax Schedule"
-Error_Report.Range("H" & Error_Report.Cells.Find("Trimmed Invoice Number", After:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Order Manager"
-Error_Report.Range("I" & Error_Report.Cells.Find("Trimmed Invoice Number", After:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Ship To City"
-Error_Report.Range("J" & Error_Report.Cells.Find("Trimmed Invoice Number", After:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Ship To Address 1"
-Error_Report.Range("K" & Error_Report.Cells.Find("Trimmed Invoice Number", After:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Ship To Address 2"
-Error_Report.Range("L" & Error_Report.Cells.Find("Trimmed Invoice Number", After:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Ship To Address 3"
-Error_Report.Range("M" & Error_Report.Cells.Find("Trimmed Invoice Number", After:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Exemption Reason"
+Error_Report.Range("B" & Error_Report.Cells.Find("Trimmed Invoice Number", after:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Invoice Date"
+Error_Report.Range("C" & Error_Report.Cells.Find("Trimmed Invoice Number", after:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Customer No."
+Error_Report.Range("D" & Error_Report.Cells.Find("Trimmed Invoice Number", after:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Customer Name"
+Error_Report.Range("E" & Error_Report.Cells.Find("Trimmed Invoice Number", after:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Ship To State"
+Error_Report.Range("F" & Error_Report.Cells.Find("Trimmed Invoice Number", after:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Ship to ZipCode"
+Error_Report.Range("G" & Error_Report.Cells.Find("Trimmed Invoice Number", after:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Tax Schedule"
+Error_Report.Range("H" & Error_Report.Cells.Find("Trimmed Invoice Number", after:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Order Manager"
+Error_Report.Range("I" & Error_Report.Cells.Find("Trimmed Invoice Number", after:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Ship To City"
+Error_Report.Range("J" & Error_Report.Cells.Find("Trimmed Invoice Number", after:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Ship To Address 1"
+Error_Report.Range("K" & Error_Report.Cells.Find("Trimmed Invoice Number", after:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Ship To Address 2"
+Error_Report.Range("L" & Error_Report.Cells.Find("Trimmed Invoice Number", after:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Ship To Address 3"
+Error_Report.Range("M" & Error_Report.Cells.Find("Trimmed Invoice Number", after:=Error_Report.Range("A" & HeaderEnd)).row).Value = "Exemption Reason"
 
 
 
@@ -3837,7 +3874,7 @@ Call Step_16_Secondary_FormatHeaderCells(HeaderRow)
 VertexCompareStart = Error_Report.Cells(Rows.Count, 1).End(xlUp).row + 1
 
 'Loop Through Vertex Gross Compare Sheet looking at variances
-For X = Vertex_Gross_Sheet.Cells.Find("Vertex Gross Sales", After:=Vertex_Gross_Sheet.Range("A1")).row + 1 To Vertex_Pivot_LR
+For X = Vertex_Gross_Sheet.Cells.Find("Vertex Gross Sales", after:=Vertex_Gross_Sheet.Range("A1")).row + 1 To Vertex_Pivot_LR
 
     If WorksheetFunction.Round(Vertex_Gross_Sheet.Cells(X, Vertex_Gross_Sheet.Cells.Find("Gross Sales Variance").Column).Value, 2) <> 0 _
     Or WorksheetFunction.Round(Vertex_Gross_Sheet.Cells(X, Vertex_Gross_Sheet.Cells.Find("Taxable Sales Variance").Column).Value, 2) <> 0 _
@@ -3900,7 +3937,7 @@ Call Step_16_Secondary_FormatHeaderCells(HeaderRow)
 MarketplaceStart = Cells(Rows.Count, 1).End(xlUp).row + 1
 
 On Error Resume Next
-For i = Mktplc.Cells.Find("Sage Gross Sales", After:=Mktplc.Range("A1")).row + 1 To Mktplc_LR - 1
+For i = Mktplc.Cells.Find("Sage Gross Sales", after:=Mktplc.Range("A1")).row + 1 To Mktplc_LR - 1
         Mktplc.Activate
         If WorksheetFunction.Round(Mktplc.Cells(i, Mktplc.Cells.Find("Gross Sales Variance").Column).Value, 2) <> 0 Or WorksheetFunction.Round(Mktplc.Cells(i, Mktplc.Cells.Find("Taxable Sales Variance").Column).Value, 2) <> 0 Or Round(Mktplc.Cells(i, Mktplc.Cells.Find("Nontaxable Sales Variance").Column).Value, 2) <> 0 Or Round(Mktplc.Cells(i, Mktplc.Cells.Find("Freight Variance").Column).Value, 2) <> 0 Or Round(Mktplc.Cells(i, Mktplc.Cells.Find("Tax Variance").Column).Value, 2) <> 0 Then
         Counter = WorksheetFunction.CountA(Error_Report.Range("A:A")) + 3
@@ -4119,13 +4156,13 @@ Else
 'If Gross Amount does not include sales tax then...
 
 ''Populate Gross Vertex Sales from the Vertex Gross Sales Pivot Table
-Summary.Range("E4").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_GrossComp_Gross.Address(external:=True) & ",0,0)"
+Summary.Range("E4").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_GrossComp_Gross.Address(External:=True) & ",0,0)"
 
 ' Link the Vertex Gross Sales to its source data
 Summary.Range("E4").Select
-LinkRow = Vertex_Gross_Sheet.Cells.Find("Grand Total", After:=Vertex_Gross_Sheet.Range("A1")).row
+LinkRow = Vertex_Gross_Sheet.Cells.Find("Grand Total", after:=Vertex_Gross_Sheet.Range("A1")).row
 Set LinkCell = Selection
-LinkAddress = Vertex_Gross_Sheet.Range("B" & LinkRow).Address(external:=True)
+LinkAddress = Vertex_Gross_Sheet.Range("B" & LinkRow).Address(External:=True)
 LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
@@ -4133,13 +4170,13 @@ ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddres
 Step_17_Secondary_SetCellFormat Summary.Range("E4"), NumberFormat
 
 'Populate Vertex Taxable Sales
-Summary.Range("E5").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_GrossComp_Taxable.Address(external:=True) & ",0,0)"
+Summary.Range("E5").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_GrossComp_Taxable.Address(External:=True) & ",0,0)"
 
 'Link Vertex Taxable Data to Source
 Summary.Range("E5").Select
-LinkRow = Vertex_Gross_Sheet.Cells.Find("Grand Total", After:=Vertex_Gross_Sheet.Range("A1")).row
+LinkRow = Vertex_Gross_Sheet.Cells.Find("Grand Total", after:=Vertex_Gross_Sheet.Range("A1")).row
 Set LinkCell = Selection
-LinkAddress = Vertex_Gross_Sheet.Range("C" & LinkRow).Address(external:=True)
+LinkAddress = Vertex_Gross_Sheet.Range("C" & LinkRow).Address(External:=True)
 LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
@@ -4147,13 +4184,13 @@ ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddres
 Step_17_Secondary_SetCellFormat Summary.Range("E5"), NumberFormat
 
 'Populate Vertex Exempt Sales
-Summary.Range("E6").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_GrossComp_Exempt.Address(external:=True) & ",0,0)"
+Summary.Range("E6").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_GrossComp_Exempt.Address(External:=True) & ",0,0)"
 
 'Link Vertex Exempt Sales to Source Data
 Summary.Range("E6").Select
-LinkRow = Vertex_Gross_Sheet.Cells.Find("Grand Total", After:=Vertex_Gross_Sheet.Range("A1")).row
+LinkRow = Vertex_Gross_Sheet.Cells.Find("Grand Total", after:=Vertex_Gross_Sheet.Range("A1")).row
 Set LinkCell = Selection
-LinkAddress = Vertex_Gross_Sheet.Range("D" & LinkRow).Address(external:=True)
+LinkAddress = Vertex_Gross_Sheet.Range("D" & LinkRow).Address(External:=True)
 LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
@@ -4161,13 +4198,13 @@ ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddres
 Step_17_Secondary_SetCellFormat Summary.Range("E6"), NumberFormat
 
 'Populate Vertex Sales Tax
-Summary.Range("E7").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_Tax_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Tax_Tax.Address(external:=True) & ",0,0)"
+Summary.Range("E7").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_Tax_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Tax_Tax.Address(External:=True) & ",0,0)"
 
 'Link Vertex Sales Tax to source data
 Summary.Range("E7").Select
 LinkRow = WorksheetFunction.CountA(Vertex_Pivot.Range("I:I")) + 3
 Set LinkCell = Selection
-LinkAddress = Vertex_Pivot.Range("J" & LinkRow).Address(external:=True)
+LinkAddress = Vertex_Pivot.Range("J" & LinkRow).Address(External:=True)
 LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
@@ -4176,13 +4213,13 @@ Step_17_Secondary_SetCellFormat Summary.Range("E7"), NumberFormat
 
 
 'Populate Sage Gross Sales
-Summary.Range("G4").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Gross.Address(external:=True) & ",0,0)"
+Summary.Range("G4").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Gross.Address(External:=True) & ",0,0)"
 
 'Link Sage Gross Sales to source data
 Summary.Range("G4").Select
 LinkRow = WorksheetFunction.CountA(Sheets("Sage_Gross Compare").Range("A:A")) + 4
 Set LinkCell = Selection
-LinkAddress = Sheets("Sage_Gross Compare").Range("B" & LinkRow).Address(external:=True)
+LinkAddress = Sheets("Sage_Gross Compare").Range("B" & LinkRow).Address(External:=True)
 LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
@@ -4196,11 +4233,11 @@ Summary.Range("J3").Style = "Normal"
 
 
 'Populate the Sage Taxable Sales Value
-Summary.Range("K3").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Taxable.Address(external:=True) & ",0,0)"
+Summary.Range("K3").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Taxable.Address(External:=True) & ",0,0)"
 Summary.Range("K3").Select
 LinkRow = WorksheetFunction.CountA(Sheets("Sage_Gross Compare").Range("A:A")) + 4
 Set LinkCell = Selection
-LinkAddress = Sheets("Sage_Gross Compare").Range("C" & LinkRow).Address(external:=True)
+LinkAddress = Sheets("Sage_Gross Compare").Range("C" & LinkRow).Address(External:=True)
 LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
@@ -4209,13 +4246,13 @@ Step_17_Secondary_SetCellFormat Summary.Range("K3"), NumberFormat
 
 'Populate the Vertex Taxable Freight
 Summary.Range("J4").Value = "Vertex Taxable Freight:"
-Summary.Range("K4").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Freight_Taxable.Address(external:=True) & ",0,0)"
+Summary.Range("K4").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Freight_Taxable.Address(External:=True) & ",0,0)"
 Summary.Range("K4").Select
 
 'Link the summary back to the data source for the Vertex data
 LinkRow = WorksheetFunction.CountA(Sheets("Vertex Pivot").Range("P:P")) + 6
 Set LinkCell = Selection
-LinkAddress = Sheets("Vertex Pivot").Range("P" & LinkRow).Address(external:=True)
+LinkAddress = Sheets("Vertex Pivot").Range("P" & LinkRow).Address(External:=True)
 LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
@@ -4234,13 +4271,13 @@ Step_17_Secondary_SetCellFormat Summary.Range("K5"), NumberFormat
 Summary.Range("J7").Value = "Sage Non-Taxable Sales"
 
 'Lookup Sage Nontaxable Sales
-Summary.Range("K7").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Nontaxable.Address(external:=True) & ",0,0)"
+Summary.Range("K7").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Nontaxable.Address(External:=True) & ",0,0)"
 
 'Link Sage Nontaxable Sales to its Source Data
 Summary.Range("K7").Select
 LinkRow = WorksheetFunction.CountA(Sheets("Sage_Gross Compare").Range("A:A")) + 4
 Set LinkCell = Selection
-LinkAddress = Sheets("Sage_Gross Compare").Range("D" & LinkRow).Address(external:=True)
+LinkAddress = Sheets("Sage_Gross Compare").Range("D" & LinkRow).Address(External:=True)
 LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
@@ -4249,13 +4286,13 @@ Step_17_Secondary_SetCellFormat Summary.Range("K7"), NumberFormat
 
 'Lookup Vertex Non-Taxable Freight
 Summary.Range("J8").Value = "Vertex Non-Taxable Freight"
-Summary.Range("K8").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Freight_Exempt.Address(external:=True) & ",0,0)"
+Summary.Range("K8").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Freight_Exempt.Address(External:=True) & ",0,0)"
 
 'Link Vertex Non-Taxable to source data
 Summary.Range("K8").Select
 LinkRow = WorksheetFunction.CountA(Sheets("Vertex Pivot").Range("Q:Q")) + 6
 Set LinkCell = Selection
-LinkAddress = Sheets("Vertex Pivot").Range("Q" & LinkRow).Address(external:=True)
+LinkAddress = Sheets("Vertex Pivot").Range("Q" & LinkRow).Address(External:=True)
 LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
@@ -4278,7 +4315,7 @@ Summary.Range("G5").Value = "=K5"
 Summary.Range("G5").Select
 LinkRow = 5
 Set LinkCell = Selection
-LinkAddress = Sheets("Summary").Range("K" & LinkRow).Address(external:=True)
+LinkAddress = Sheets("Summary").Range("K" & LinkRow).Address(External:=True)
 LinkAddress = "K5"
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
@@ -4291,18 +4328,18 @@ Summary.Range("G6").Select
 ' Link Data back to its source data
 LinkRow = 6
 Set LinkCell = Selection
-LinkAddress = Sheets("Summary").Range("K" & LinkRow).Address(external:=True)
+LinkAddress = Sheets("Summary").Range("K" & LinkRow).Address(External:=True)
 LinkAddress = "K9"
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
 'Populate Sage Sales Tax Amount via Lookup from Sage Pivot
-Summary.Range("G7").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_SageTax.Address(external:=True) & ",0,0)"
+Summary.Range("G7").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_SageTax.Address(External:=True) & ",0,0)"
 
 'Link Sage Sales Tax back to source data
 Summary.Range("G7").Select
 LinkRow = WorksheetFunction.CountA(Sheets("Sage_Gross Compare").Range("A:A")) + 4
 Set LinkCell = Selection
-LinkAddress = Sheets("Sage_Gross Compare").Range("F" & LinkRow).Address(external:=True)
+LinkAddress = Sheets("Sage_Gross Compare").Range("F" & LinkRow).Address(External:=True)
 LinkAddress = "'" & Right(LinkAddress, Len(LinkAddress) - InStr(LinkAddress, "]"))
 ActiveCell.Hyperlinks.Add Anchor:=Selection, Address:="", SubAddress:=LinkAddress, TextToDisplay:=CStr(Selection.Value)
 
@@ -4382,13 +4419,13 @@ Dim DeductionTypes As Range
 Dim Loop_DeductionType As Range
 Dim DeductionTypeDict As Object
 Dim key As Variant
-Dim LastRow As Long
+Dim lastRow As Long
 Dim Nth_ded As Long
 
 
 With Vtex_Nt
-    LastRow = Vtex_Nt.Cells.Find("Grand Total", Vtex_Nt.Range("A1"), xlValues).row
-    Set DeductionTypes = Vtex_Nt.Range("N" & Vtex_Nt.Cells.Find("Trimmed Invoice No", After:=Vtex_Nt.Range("A1")).row + 1 & ":N" & LastRow)
+    lastRow = Vtex_Nt.Cells.Find("Grand Total", Vtex_Nt.Range("A1"), xlValues).row
+    Set DeductionTypes = Vtex_Nt.Range("N" & Vtex_Nt.Cells.Find("Trimmed Invoice No", after:=Vtex_Nt.Range("A1")).row + 1 & ":N" & lastRow)
 End With
 
 'Create a Scripting Dictionary to Hold Each deduction type
@@ -4402,7 +4439,7 @@ For Each Loop_DeductionType In DeductionTypes
 Next Loop_DeductionType
 
 'Fill out Headers for Deductions Summary
-Nth_ded = Summary.Cells.Find("Deduction Categorical Summary", After:=Summary.Range("A1")).row
+Nth_ded = Summary.Cells.Find("Deduction Categorical Summary", after:=Summary.Range("A1")).row
 Summary.Range("E" & Nth_ded).Value = "Amount Excluding Freight"
 Summary.Range("E" & Nth_ded).WrapText = True
 Summary.Range("E" & Nth_ded).Interior.Color = RGB(180, 198, 231)
@@ -4430,7 +4467,7 @@ Nth_ded = Nth_ded + 1
 Next key
 
 'Lookup the amount of sales for each category from the vertex nontaxable pivot table
-For i = Summary.Cells.Find("Deduction Categorical Summary", After:=Summary.Range("A1")).row + 1 To Nth_ded - 1
+For i = Summary.Cells.Find("Deduction Categorical Summary", after:=Summary.Range("A1")).row + 1 To Nth_ded - 1
 Summary.Range("E" & i).Value = "=Sumproduct(--(" & Chr(34) & Summary.Range("A" & i).Value & Chr(34) & "='Vertex_Nontaxable'!N:N" & "),'Vertex_Nontaxable'!O:O" & ")"
 Summary.Range("G" & i).Value = "=Sumproduct(--(" & Chr(34) & Summary.Range("A" & i).Value & Chr(34) & "='Vertex_Nontaxable'!N:N" & "),'Vertex_Nontaxable'!U:U" & ")"
 Summary.Range("I" & i).Value = "=E" & i & "+G" & i
@@ -4582,6 +4619,11 @@ For i = 2 To Config_LastRow
             i = i - 1
         End If
     End If
+    
+    If Config.Range("B" & i) = "" Then
+        Config.Range("B" & i) = StateAbbreviation(Config.Range("A" & i))
+    
+    End If
 Next i
 
 ' Copy Posting Date column to the Settings sheet
@@ -4598,6 +4640,8 @@ Config.Visible = False
 User_Interface.Show
 Windows(ThisWorkbook.FullName).WindowState = xlMinimized
 
+
+
 End Sub
 
 Sub Copy_Column_To_Settings_Sheet(ByRef Vertex As Worksheet, ByRef Config As Worksheet, ByVal ColumnName As String, ByVal TargetCell As String, ByRef Function_Last_Row As Long)
@@ -4606,7 +4650,7 @@ Sub Copy_Column_To_Settings_Sheet(ByRef Vertex As Worksheet, ByRef Config As Wor
     Dim DestinationColumn As Range
 
     ' Find the specified column in the Vertex Data sheet
-Set ColumnRange = Vertex.Rows(1).Find(What:=ColumnName, LookIn:=xlValues, LookAt:=xlWhole, MatchCase:=True)
+Set ColumnRange = Vertex.Rows(1).Find(What:=ColumnName, LookIn:=xlValues, lookat:=xlWhole, MatchCase:=True)
    
     ' If the column is found
     If Not ColumnRange Is Nothing Then
@@ -4683,10 +4727,10 @@ Sub FN_Create_Vendor_Upload()
 
 
 End Sub
-Function GetAccountKey(state As String) As String
+Function GetAccountKey(State As String) As String
     ' Compare the state against the list of records and return the corresponding account key
     
-    Select Case state
+    Select Case State
         Case "California"
             GetAccountKey = "9999900AA"
         Case "Colorado Home Qtrly"
@@ -4871,11 +4915,13 @@ End Sub
 Sub Step_06_Secondary_ApplyFilters(Customer_Data As Range)
 
 Dim FilterDate As Date
+Dim ExceptionState As String
 
 FilterDate = DateValue(EndDate)
     ' Apply filters to the range
     Customer_Data.AutoFilter 6, "<>", xlFilterValues
         Customer_Data.AutoFilter 10, ">=" & FilterDate, xlOr, "="
+        Customer_Data.AutoFilter 14, "=" & ReconState, xlOr, "="
 End Sub
 
 Sub Step_06_Secondary_CopyFilteredDataToExemptions(Customer_Data As Range, Exemptions As Worksheet)
@@ -4919,20 +4965,20 @@ Sub Step_06_Secondary_AddFormattedCustomerIDColumn(Cust_Info As Worksheet)
     Cust_Info.Range("B:B").Insert
     Cust_Info.Range("B1").Value = "Formatted Customer ID"
 
-    Dim LastRow As Long
-    LastRow = Cust_Info.Cells(Cust_Info.Rows.Count, "A").End(xlUp).row
+    Dim lastRow As Long
+    lastRow = Cust_Info.Cells(Cust_Info.Rows.Count, "A").End(xlUp).row
 
     Dim dataRange As Range
-    Set dataRange = Cust_Info.Range("C2:C" & LastRow)
+    Set dataRange = Cust_Info.Range("C2:C" & lastRow)
 
     Dim data As Variant
     data = dataRange.Value
 
     Dim formattedData As Variant
-    ReDim formattedData(1 To LastRow - 1, 1 To 1)
+    ReDim formattedData(1 To lastRow - 1, 1 To 1)
 
     Dim i As Long
-    For i = 1 To LastRow - 1
+    For i = 1 To lastRow - 1
         If IsNumeric(data(i, 1)) Then
             formattedData(i, 1) = "'" & Right(data(i, 1), 7)
         Else
@@ -4940,7 +4986,7 @@ Sub Step_06_Secondary_AddFormattedCustomerIDColumn(Cust_Info As Worksheet)
         End If
     Next i
 
-    Cust_Info.Range("B2").Resize(LastRow - 1, 1).Value = formattedData
+    Cust_Info.Range("B2").Resize(lastRow - 1, 1).Value = formattedData
     Cust_Info.Columns("B:B").AutoFit
 End Sub
 
@@ -5104,14 +5150,14 @@ Summary.Range("J16").Value = Format(EndDate, "YYYY-MM-DD") & " " & ReconState & 
 Summary.Range("J17").Value = Format(EndDate, "YYYY-MM-DD") & " " & ReconState & " Sales Tax Discount"
 Summary.Range("J18").Value = Format(EndDate, "YYYY-MM-DD") & " " & ReconState & " Sales Tax Credit Held"
 Summary.Range("J19").Value = Format(EndDate, "YYYY-MM-DD") & " " & ReconState & " Sales Tax Credit Applied"
-Summary.Range("J19").Value = Format(EndDate, "YYYY-MM-DD") & " " & ReconState & " Sales Tax Rounding Adjustment"
+Summary.Range("J20").Value = Format(EndDate, "YYYY-MM-DD") & " " & ReconState & " Sales Tax Rounding Adjustment"
 
 
 If ReconState = "AZ" Then
 
-Summary.Range("J20").Value = "Pin No."
-Summary.Range("K20").Value = "9902176"
-Summary.Range("K20").NumberFormat = "@"
+Summary.Range("J21").Value = "Pin No."
+Summary.Range("K21").Value = "9902176"
+Summary.Range("K21").NumberFormat = "@"
 
 
 End If
@@ -5146,7 +5192,7 @@ Vertex_NonTax_Exclude_Freight_Sheet.Name = "Vertex ET Non Freight"
 ' Create the pivot table using the Vertex data cache
     Set Vertex_Nontax_Exclude_Freight = Vertex_Data_Cache.CreatePivotTable( _
         TableDestination:=Vertex_NonTax_Exclude_Freight_Sheet.Range("A5"), _
-        TableName:="Vertex_Nontax_Exclude_Freight")
+        tableName:="Vertex_Nontax_Exclude_Freight")
 
 ' Set the pivot fields
 Set Vertex_Nontax_Exclude_Freight_InvoiceNo = Vertex_Nontax_Exclude_Freight.PivotFields("Trimmed Invoice No")
@@ -5243,7 +5289,7 @@ Vertex_NonTax_Exclude_Freight_Sheet.Name = "Vertex ET Non Freight"
  ' Create the pivot table using the Vertex data cache
 Set Vertex_Nontax_Exclude_Freight = Vertex_Data_Cache.CreatePivotTable( _
     TableDestination:=Vertex_NonTax_Exclude_Freight_Sheet.Range("A5"), _
-    TableName:="Vertex_Nontax_Exclude_Freight")
+    tableName:="Vertex_Nontax_Exclude_Freight")
     
 ' Set the pivot fields
     
@@ -5361,7 +5407,7 @@ Restocking_Fees.Name = "Restocking Fees"
 
 Set Restocking_Fee_Pivot = Vertex_Data_Cache2.CreatePivotTable( _
 TableDestination:=Restocking_Fees.Range("A5"), _
-TableName:="Restocking Fees")
+tableName:="Restocking Fees")
 
 
 Set Restocking_Fee_Product_Code = Restocking_Fee_Pivot.PivotFields("Product Code")
@@ -5415,36 +5461,46 @@ End Sub
 Sub Step_15_Secondary_Vertex_Compare_Exempt()
 'Vertex Nontaxable Sales Pivot Compare
 VNTP_InvoiceNo_PF.ShowDetail = True
-Application.Calculation = xlCalculationManual
+
+Vertex_NonTax_Compare.Activate
+Dim header_row As Long
+
+
+header_row = Vertex_NonTax_Compare.Cells.Find("Trimmed Invoice No").row
+
 
 ' Get the last column index in the Vertex_NonTax_Compare sheet
-Vertex_NonTax_Compare_LC = WorksheetFunction.CountA(Vertex_NonTax_Compare.Range("7:7"))
+Vertex_NonTax_Compare_LC = WorksheetFunction.CountA(Vertex_NonTax_Compare.Range(header_row & ":" & header_row))
+
 
 ' Find the row index of "Grand Total" in the Vertex_NonTax_Compare sheet
 Vertex_NonTax_Compare_LR = Vertex_NonTax_Compare.Cells.Find("Grand Total", Vertex_NonTax_Compare.Range("A1")).row
 
 ' Add column headers to the Vertex_NonTax_Compare sheet
+
+
 With Vertex_NonTax_Compare
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 1).Value = "Customer Number"
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 2).Value = "Sage Gross Sales"
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 3).Value = "Gross Sales Variance"
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 4).Value = "Sage Taxable Sales"
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 5).Value = "Taxable Sales Variance"
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 6).Value = "Sage Nontaxable Sales"
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 7).Value = "Sage Nontaxable Variance"
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 8).Value = "Exemption Reason"
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 9).Value = "Vertex Gross Amount Excluding Freight"
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 10).Value = "Vertex Exempt/Nontaxable Amount Excluding Freight"
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 11).Value = "Vertex Taxable Amount Excluding Freight"
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 12).Value = "Sage Gross Amount Excluding Freight"
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 13).Value = "Sage Exempt/Nontaxable Amount Excluding Freight"
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 14).Value = "Sage Taxable Amount Excluding Freight"
-    .Cells(.Cells.Find("Trimmed Invoice No", After:=.Range("A1")).row, Vertex_NonTax_Compare_LC + 15).Value = "Freight Amt"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 1).Value = "Customer Number"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 2).Value = "Sage Gross Sales"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 3).Value = "Gross Sales Variance"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 4).Value = "Sage Taxable Sales"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 5).Value = "Taxable Sales Variance"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 6).Value = "Sage Nontaxable Sales"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 7).Value = "Sage Nontaxable Variance"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 8).Value = "Exemption Reason"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 9).Value = "Vertex Gross Amount Excluding Freight"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 10).Value = "Vertex Exempt/Nontaxable Amount Excluding Freight"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 11).Value = "Vertex Taxable Amount Excluding Freight"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 12).Value = "Sage Gross Amount Excluding Freight"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 13).Value = "Sage Exempt/Nontaxable Amount Excluding Freight"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 14).Value = "Sage Taxable Amount Excluding Freight"
+    .Cells(header_row, Vertex_NonTax_Compare_LC + 15).Value = "Freight Amt"
     .Columns.AutoFit
 End With
 VNTP_InvoiceNo_PF.ShowDetail = False
 Vertex_NonTax_Compare_LR = Vertex_NonTax_Compare.Cells.Find("Grand Total", Vertex_NonTax_Compare.Range("A1")).row
-For i = Vertex_NonTax_Compare.Cells.Find("Trimmed Invoice No", After:=Vertex_NonTax_Compare.Range("A1")).row + 1 To Vertex_NonTax_Compare_LR - 1
+
+For i = header_row + 1 To header_row + 1
 Sage_Freight = InStr(WorksheetFunction.XLookup(Vertex_NonTax_Compare.Range("A" & i).Value, Sage.Range("EI:EI"), Sage.Range("J:J"), 0, 0), "MKTPLCFAC")
 
 Dim A As Long
@@ -5453,10 +5509,16 @@ Dim C As Long
 
 
 'Lookup Document Customer No.
-    Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 1).Value = "=XLOOKUP(A" & i & "," & Sage.Range("EI:EI").Address(external:=True) & "," & Sage.Range("H:H").Address(external:=True) & ",0,0)"
+If Len(Vertex_NonTax_Compare.Range("A" & i).Value) < 6 Then
+    Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 1).Value = "=XLOOKUP(" & Chr(34) & "1" & Chr(34) & "&TEXT(A" & i & "," & Chr(34) & "000000" & Chr(34) & ")," & Sage.Range("EI:EI").Address(External:=True) & "," & Sage.Range("H:H").Address(External:=True) & ",0,0)"
     
+    Else
+        Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 1).Value = "=XLOOKUP(A" & i & "," & Sage.Range("EI:EI").Address(External:=True) & "," & Sage.Range("H:H").Address(External:=True) & ",0,0)"
+
+End If
+
 'Calculate Sage Gross nontaxable Sales Sales (Vertex exempt/nontaxable Freight + Sage Nontaxable Sales
-        Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 2).Value = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Taxable.Address(external:=True) & ",0,0)+XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Nontaxable.Address(external:=True) & ",0,0)" & "+XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Freight.Address(external:=True) & ",0,0),2)"
+        Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 2).Value = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Taxable.Address(External:=True) & ",0,0)+XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Nontaxable.Address(External:=True) & ",0,0)" & "+XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Freight.Address(External:=True) & ",0,0),2)"
     
 'Calculate Gross sales variance
     A = Vertex_NonTax_Compare.Cells.Find("Vertex Gross Sales").Column
@@ -5466,7 +5528,7 @@ Dim C As Long
   
     
 'Calculate Sage Taxable Sales (Include Freight)
-        Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 4).Value = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Taxable.Address(external:=True) & ",0,0)" & "+XLOOKUP(A" & i & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Freight_Taxable.Address(external:=True) & ",0,0),2)"
+        Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 4).Value = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Taxable.Address(External:=True) & ",0,0)" & "+XLOOKUP(A" & i & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Freight_Taxable.Address(External:=True) & ",0,0),2)"
 
 'Calculate Taxable Sales Variance
 
@@ -5476,7 +5538,7 @@ Dim C As Long
     Vertex_NonTax_Compare.Cells(i, C).Value = "=" & Vertex_NonTax_Compare.Cells(i, A).Address(RowAbsolute:=False, ColumnAbsolute:=False) & "-" & Vertex_NonTax_Compare.Cells(i, B).Address(RowAbsolute:=False, ColumnAbsolute:=False)
   
 'Calculate Nontaxable Sales
-    Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 6).Value = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Nontaxable.Address(external:=True) & ",0,0)" & "+XLOOKUP(A" & i & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Freight_Exempt.Address(external:=True) & ",0,0),2)"
+    Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 6).Value = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Nontaxable.Address(External:=True) & ",0,0)" & "+XLOOKUP(A" & i & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Freight_Exempt.Address(External:=True) & ",0,0),2)"
     
 'Calculate NonTaxable Sales Variance
     A = Vertex_NonTax_Compare.Cells.Find("Vertex Exempt Sales").Column
@@ -5485,6 +5547,51 @@ Dim C As Long
   Vertex_NonTax_Compare.Cells(i, C).Value = "=" & Vertex_NonTax_Compare.Cells(i, A).Address(RowAbsolute:=False, ColumnAbsolute:=False) & "-" & Vertex_NonTax_Compare.Cells(i, B).Address(RowAbsolute:=False, ColumnAbsolute:=False)
     
 'Determine if ether sage or vertex has more than 0 for nontaxable
+    
+'Populate the Vertex Gross Amount Exclusive of Freight
+Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 9).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(External:=True, RowAbsolute:=False) & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_NontaxNoFreight_Gross.Address(External:=True) & ",0,0)"
+
+'Populate the Vertex Exempt Amount Exclusive of Freight
+Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 10).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(External:=True, RowAbsolute:=False) & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_NontaxNoFreight_Exempt.Address(External:=True) & ",0,0)"
+
+'Populate the Vertex Taxable Amount Excluding Freight
+Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 11).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(External:=True, RowAbsolute:=False) & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_NontaxNoFreight_Taxable.Address(External:=True) & ",0,0)"
+
+'Populate the Sage Gross Amount Exclusive of Freight
+Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 12).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(External:=True, RowAbsolute:=False) & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Nontaxable.Address(External:=True) & ",0,0)+XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(External:=True, RowAbsolute:=False) & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Taxable.Address(External:=True) & ",0,0)"
+
+'Populate the Sage Nontaxable Amount Excluding Freight
+Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 13).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(External:=True, RowAbsolute:=False) & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Nontaxable.Address(External:=True) & ",0,0)"
+
+'Populate the Sage Taxable Amount Excluding Freight
+Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 14).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(External:=True, RowAbsolute:=False) & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Taxable.Address(External:=True) & ",0,0)"
+
+'Populate the freight amount
+Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 15).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(External:=True, RowAbsolute:=False) & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Freight.Address(External:=True) & ",0,0)"
+
+
+'If Vertex_NonTax_Compare.Range("N" & i).Value = "Nontaxable Item" Then
+    
+Next i
+
+
+With Vertex_NonTax_Compare
+
+
+Dim FormulaRange As Range
+Dim PasteRange As Range
+
+
+Set FormulaRange = Range(.Cells(.Cells.Find("Trimmed Invoice No", lookat:=xlPart).row + 1, .Cells.Find("Customer Number", lookat:=xlPart).Column), .Cells(.Cells.Find("Trimmed Invoice No", lookat:=xlPart).row + 1, .Cells.Find("Freight Amt", lookat:=xlPart).Column))
+Set PasteRange = Range(.Cells(.Cells.Find("Trimmed Invoice No", lookat:=xlPart).row + 1, .Cells.Find("Customer Number", lookat:=xlPart).Column), .Cells(.Cells.Find("Grand Total", lookat:=xlWhole).row, .Cells.Find("Freight Amt", lookat:=xlPart).Column))
+
+FormulaRange.Copy
+PasteRange.PasteSpecial xlPasteFormulas
+
+
+
+For i = header_row + 1 To .Cells.Find("Grand Total").row - 1
+
     If Vertex_NonTax_Compare.Range("F" & i).Value <> 0 Or Vertex_NonTax_Compare.Range("L" & i).Value <> 0 Then
         'Check to see if the transaction was a marketplace transaction, if its not then...
         If InStr(WorksheetFunction.XLookup(Vertex_NonTax_Compare.Range("A" & i).Value, Sage.Range("EI:EI"), Sage.Range("J:J"), 0, 0), "MKTPLCFAC") <> 1 Then
@@ -5501,30 +5608,7 @@ Dim C As Long
         'If there are taxable sales put in taxable sale
     Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 8).Value = "Taxable Sale"
     End If
-    
-'Populate the Vertex Gross Amount Exclusive of Freight
-Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 9).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(external:=True) & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_NontaxNoFreight_Gross.Address(external:=True) & ",0,0)"
 
-'Populate the Vertex Exempt Amount Exclusive of Freight
-Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 10).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(external:=True) & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_NontaxNoFreight_Exempt.Address(external:=True) & ",0,0)"
-
-'Populate the Vertex Taxable Amount Excluding Freight
-Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 11).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(external:=True) & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_NontaxNoFreight_Taxable.Address(external:=True) & ",0,0)"
-
-'Populate the Sage Gross Amount Exclusive of Freight
-Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 12).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(external:=True) & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Nontaxable.Address(external:=True) & ",0,0)+XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(external:=True) & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Taxable.Address(external:=True) & ",0,0)"
-
-'Populate the Sage Nontaxable Amount Excluding Freight
-Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 13).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(external:=True) & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Nontaxable.Address(external:=True) & ",0,0)"
-
-'Populate the Sage Taxable Amount Excluding Freight
-Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 14).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(external:=True) & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Taxable.Address(external:=True) & ",0,0)"
-
-'Populate the freight amount
-Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 15).Formula = "=XLOOKUP(" & Vertex_NonTax_Compare.Range("A" & i).Address(external:=True) & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Freight.Address(external:=True) & ",0,0)"
-
-
-'If Vertex_NonTax_Compare.Range("N" & i).Value = "Nontaxable Item" Then
     If Round(Vertex_NonTax_Compare.Range("F" & i).Value, 2) = Round(WorksheetFunction.XLookup(Vertex_NonTax_Compare.Range("A" & i).Value, Sage.Range("EI:EI"), Sage.Range("BX:BX"), 0, 0), 2) And Round(Vertex_NonTax_Compare.Range("F" & i).Value, 2) <> 0 Then
         Vertex_NonTax_Compare.Range("N" & i).Value = "Nontaxable Freight as component of taxable sale"
         ElseIf Round(Vertex_NonTax_Compare.Range("H" & i).Value, 2) = 0 Then
@@ -5538,16 +5622,18 @@ Vertex_NonTax_Compare.Cells(i, Vertex_NonTax_Compare_LC + 15).Formula = "=XLOOKU
             
         End If
     End If
-    
+
 Next i
-Application.Calculation = xlCalculationAutomatic
-Application.Calculate
+End With
+
+
+
 
 End Sub
 
 Sub Step_15_Secondary_Vertex_Compare_Gross()
+Vertex_Gross_Sheet.Activate
 
-Application.Calculation = xlCalculationManual
 
 
 'Vertex Gross Sales Pivot Compare
@@ -5620,56 +5706,67 @@ End With
 Vertex_Gross_Sheet.Activate
 
 With Vertex_Gross_Sheet
-    For i = 7 To Vertex_Pivot_LR - 1
+    For i = 7 To 8
     Dim A As Long
     Dim B As Long
     Dim C As Long
+    Dim Headerow As Long
+    Dim EndingRow As Long
+    Dim FillRange As Range
+    Dim FormulaRange As Range
     
-        
+ 
         'Look up The taxable Freight from Vertex
-        .Cells(i, temp_Vertex_Freight).Formula = "=XLOOKUP(A" & i & ", " & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Freight_Gross.Address(external:=True) & ",0,0)"
+        .Cells(i, temp_Vertex_Freight).Formula = "=XLOOKUP(A" & i & ", " & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Freight_Gross.Address(External:=True) & ",0,0)"
         
         
         'Look up the Total Tax per document number from Vertex
-        .Cells(i, Cells.Find("Vertex Tax (lookup)").Column).Value = "=XLOOKUP(A" & i & "," & Lookup_Vertex_Tax_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Tax_Tax.Address(external:=True) & ",0,0)"
+        .Cells(i, Cells.Find("Vertex Tax (lookup)").Column).Value = "=XLOOKUP(A" & i & "," & Lookup_Vertex_Tax_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Tax_Tax.Address(External:=True) & ",0,0)"
         
         ' Calculate the Gross Sales for the current row in Sage using XLOOKUP formulas
-        .Cells(i, temp_Sage_Gross_Sales).Formula = "=XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Gross.Address(external:=True) & ",0,0)"
+        .Cells(i, temp_Sage_Gross_Sales).Formula = "=XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Gross.Address(External:=True) & ",0,0)"
         
         ' Calculate the Gross Sales Variance for the current row using a formula
-        .Cells(i, .Cells.Find("Gross Sales Variance", After:=.Range("A1")).Column).Value = "=" & .Cells(i, temp_Vertex_Gross).Address(ColumnAbsolute:=False, RowAbsolute:=False) & "-" & .Cells(i, temp_Sage_Gross_Sales).Address(ColumnAbsolute:=False, RowAbsolute:=False)
+        .Cells(i, .Cells.Find("Gross Sales Variance", after:=.Range("A1")).Column).Value = "=" & .Cells(i, temp_Vertex_Gross).Address(ColumnAbsolute:=False, RowAbsolute:=False) & "-" & .Cells(i, temp_Sage_Gross_Sales).Address(ColumnAbsolute:=False, RowAbsolute:=False)
 
         ' Calculate the Taxable Sales for the current row using XLOOKUP formulas
-        .Cells(i, temp_Sage_Taxable_Sales).Formula = "=XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Taxable.Address(external:=True) & ",0,0) + XLOOKUP(A" & i & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Freight_Taxable.Address(external:=True) & ",0,0)"
+        .Cells(i, temp_Sage_Taxable_Sales).Formula = "=XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Taxable.Address(External:=True) & ",0,0) + XLOOKUP(A" & i & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Freight_Taxable.Address(External:=True) & ",0,0)"
         
         ' Calculate the Taxable Sales Variance for the current row using a formula
         .Cells(i, temp_Taxable_Sales_Variance).Value = "=" & .Cells(i, temp_Vertex_taxable).Address(ColumnAbsolute:=False, RowAbsolute:=False) & "-" & .Cells(i, temp_Sage_Taxable_Sales).Address(ColumnAbsolute:=False, RowAbsolute:=False)
 
         ' Calculate the Non-Taxable Sales for the current row using XLOOKUP formulas
-        .Cells(i, temp_Sage_NonTaxable_Sales).Formula = "=XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Nontaxable.Address(external:=True) & ",0,0) + XLOOKUP(A" & i & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Freight_Exempt.Address(external:=True) & ",0,0)"
+        .Cells(i, temp_Sage_NonTaxable_Sales).Formula = "=XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Nontaxable.Address(External:=True) & ",0,0) + XLOOKUP(A" & i & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Freight_Exempt.Address(External:=True) & ",0,0)"
         
         ' Calculate the Non-Taxable Sales Variance for the current row using a formula
         .Cells(i, temp_NonTaxable_Sales_Variance).Value = "=" & .Cells(i, temp_Vertex_Gross).Address(ColumnAbsolute:=False, RowAbsolute:=False) & "-" & .Cells(i, temp_Vertex_taxable).Address(ColumnAbsolute:=False, RowAbsolute:=False) & "-" & .Cells(i, temp_Sage_NonTaxable_Sales).Address(ColumnAbsolute:=False, RowAbsolute:=False)
 
 
         ' Calculate the Freight Amount for the current row using XLOOKUP formulas
-        .Cells(i, temp_Sage_Freight_Amount).Formula = "=XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_Sage_Freight.Address(external:=True) & ",0,0)"
+        .Cells(i, temp_Sage_Freight_Amount).Formula = "=XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_Sage_Freight.Address(External:=True) & ",0,0)"
 
         ' Calculate the Freight Variance for the current row using a formula
         .Cells(i, temp_Freight_Variance).Value = "=" & .Cells(i, temp_Vertex_Freight).Address(ColumnAbsolute:=False, RowAbsolute:=False) & "-" & .Cells(i, temp_Sage_Freight_Amount).Address(ColumnAbsolute:=False, RowAbsolute:=False)
     
         ' Calculate the Tax Amount for the current row using XLOOKUP formulas
-        .Cells(i, .Cells.Find("Sage Tax Amount", After:=.Range("A1")).Column).Formula = "=XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(external:=True) & "," & Lookup_SageTax.Address(external:=True) & ",0,0)"
+        .Cells(i, .Cells.Find("Sage Tax Amount", after:=.Range("A1")).Column).Formula = "=XLOOKUP(A" & i & "," & Lookup_Sage_InvoiceNo.Address(External:=True) & "," & Lookup_SageTax.Address(External:=True) & ",0,0)"
                    
         ' Calculate the Tax Variance for the current row using a formula
-        .Cells(i, .Cells.Find("Tax Variance", After:=.Range("A1")).Column).Value = "=" & .Cells(i, Cells.Find("Vertex Tax (lookup)").Column).Address(ColumnAbsolute:=False, RowAbsolute:=False) & "-" & .Cells(i, temp_Sage_Tax_Amount).Address(ColumnAbsolute:=False, RowAbsolute:=False)
+        .Cells(i, .Cells.Find("Tax Variance", after:=.Range("A1")).Column).Value = "=" & .Cells(i, Cells.Find("Vertex Tax (lookup)").Column).Address(ColumnAbsolute:=False, RowAbsolute:=False) & "-" & .Cells(i, temp_Sage_Tax_Amount).Address(ColumnAbsolute:=False, RowAbsolute:=False)
    
     Next i
+       Headerow = .Cells.Find("Row Labels").row
+       EndingRow = .Cells.Find("Grand Total").row - 1
+       
+       Set FormulaRange = .Range(.Cells(8, temp_Vertex_Freight), .Cells(8, .Cells.Find("Tax Variance", after:=.Range("A1")).Column))
+       Set FillRange = .Range(.Cells(9, temp_Vertex_Freight), .Cells(EndingRow, .Cells.Find("Tax Variance", after:=.Range("A1")).Column))
+       FormulaRange.Copy
+       FillRange.PasteSpecial (xlPasteFormulas)
 
 End With
 
-Application.Calculation = xlCalculationAutomatic
-Application.Calculate
+
+
 
 
 End Sub
@@ -5677,7 +5774,8 @@ End Sub
 
 Sub Step_15_Secondary_Sage_Compare_NonFreight()
 
-Application.Calculation = xlCalculationManual
+
+Sage_Pivot.Activate
 
 'Populate Data Comparison for Sage Pivot sheet (excludes Marketplace facilitated sales)
 
@@ -5721,18 +5819,20 @@ Sage_Pivot.Columns.AutoFit
 
 ' Loop Through the pivot table document numbers and write lookup formula. E.G Populate Comparison Fields in Sheet "Sage Pivot".
 
-For i = 7 To WorksheetFunction.CountA(Sage_Pivot.Range("A:A")) + 3
+For i = 7 To 8
 
 Dim A As Long
 Dim B As Long
 Dim C As Long
-
+Dim FormulaRange As Range
+Dim PasteRange As Range
     
     ' Get the cell address of the current invoice number to use in the XLOOKUP formula
-    LookupInvoiceNo = Sage_Pivot.Range("A" & i).Address(external:=True)
+    
+    LookupInvoiceNo = Sage_Pivot.Range("A" & i).Address(External:=True, RowAbsolute:=False)
     
     ' Populate the Gross Vertex Sales Amount Column with an XLOOKUP formula
-    Sage_Pivot.Cells(i, Sage_Pivot_LC + 1).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_GrossComp_Gross.Address(external:=True) & ",0,0),2)"
+    Sage_Pivot.Cells(i, Sage_Pivot_LC + 1).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_GrossComp_Gross.Address(External:=True) & ",0,0),2)"
     
     ' Populate the Gross Sales Variance Column
     A = Sage_Pivot.Cells.Find("Sage Gross Sales").Column
@@ -5741,7 +5841,7 @@ Dim C As Long
     Sage_Pivot.Cells(i, C).Value = "=ROUND(" & Sage_Pivot.Cells(i, A).Address(RowAbsolute:=False, ColumnAbsolute:=False) & "-" & Sage_Pivot.Cells(i, B).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ",2)"
     
     ' Populate the Vertex Taxable Sales Column Excluding Freight with an XLOOKUP formula
-    Sage_Pivot.Cells(i, Sage_Pivot_LC + 3).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_NontaxNoFreight_Taxable.Address(external:=True) & ",0,0),2)"
+    Sage_Pivot.Cells(i, Sage_Pivot_LC + 3).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_NontaxNoFreight_Taxable.Address(External:=True) & ",0,0),2)"
     
     ' Populate the Taxable Sales Variance Column
     A = Sage_Pivot.Cells.Find("Sage Taxable Sales").Column
@@ -5750,7 +5850,7 @@ Dim C As Long
     Sage_Pivot.Cells(i, C).Value = "=ROUND(" & Sage_Pivot.Cells(i, A).Address(RowAbsolute:=False, ColumnAbsolute:=False) & "-" & Sage_Pivot.Cells(i, B).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ",2)"
     
     ' Populate the Vertex Exempt Sales Column Excluding Freight with an XLOOKUP formula
-    Sage_Pivot.Cells(i, Sage_Pivot_LC + 5).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_NontaxNoFreight_Exempt.Address(external:=True) & ",0,0),2)"
+    Sage_Pivot.Cells(i, Sage_Pivot_LC + 5).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_NontaxNoFreight_Exempt.Address(External:=True) & ",0,0),2)"
     
     ' Populate the Exempt Sales Variance Column
     A = Sage_Pivot.Cells.Find("Sage Non-Taxable Sales").Column
@@ -5760,7 +5860,7 @@ Dim C As Long
    
     
     ' Populate the Vertex Freight Sales Column Excluding Marketplace Sales with an XLOOKUP formula
-    Sage_Pivot.Cells(i, Sage_Pivot_LC + 7).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Freight_Gross.Address(external:=True) & ",0,0),2)"
+    Sage_Pivot.Cells(i, Sage_Pivot_LC + 7).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Freight_Gross.Address(External:=True) & ",0,0),2)"
     
     ' Populate the Freight Sales Variance Column Excluding Marketplace Sales
     A = Sage_Pivot.Cells.Find("Sage Freight").Column
@@ -5769,7 +5869,7 @@ Dim C As Long
     Sage_Pivot.Cells(i, C).Value = "=ROUND(" & Sage_Pivot.Cells(i, A).Address(RowAbsolute:=False, ColumnAbsolute:=False) & "-" & Sage_Pivot.Cells(i, B).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ",2)"
    
     ' Populate the Vertex Tax Amount Column with an XLOOKUP formula
-    Sage_Pivot.Cells(i, Sage_Pivot_LC + 9).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_Tax_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Tax_Tax.Address(external:=True) & ",0,0),2)"
+    Sage_Pivot.Cells(i, Sage_Pivot_LC + 9).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_Tax_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Tax_Tax.Address(External:=True) & ",0,0),2)"
     
     ' Populate the Tax Variance Column
     A = Sage_Pivot.Cells.Find("Sage Tax").Column
@@ -5779,13 +5879,27 @@ Dim C As Long
    
 Next i
 
-Application.Calculation = xlCalculationAutomatic
+
+With Sage_Pivot
+
+Set FormulaRange = Range(.Cells(7, .Cells.Find("Vertex Gross Sales", lookat:=xlPart).Column), .Cells(7, .Cells.Find("Tax Variance", lookat:=xlPart).Column))
+Set PasteRange = Range(.Cells(7, .Cells.Find("Vertex Gross Sales", lookat:=xlPart).Column), .Cells(.Cells.Find("Grand Total", lookat:=xlWhole).row - 1, .Cells.Find("Tax Variance", lookat:=xlPart).Column))
+
+FormulaRange.Copy
+PasteRange.PasteSpecial xlPasteFormulas
+
+End With
+
+
+
+
 
 End Sub
 
 Sub Step_15_Secondary_Sage_Compare_Gross()
 
-Application.Calculation = xlCalculationManual
+
+Sage_Gross.Activate
 
 'Sage Gross Sales (Including Marketplace) Compare to Vertex (Sheet "Sage_Gross Compare" sheet)
 
@@ -5811,18 +5925,21 @@ Sage_Gross.Columns.AutoFit
 Sage_Pivot_LR = Sage_Gross.Cells.Find("Grand Total", Sage_Gross.Range("A1")).row
 
 
-For i = 7 To Sage_Pivot_LR - 1
+For i = 7 To 8
 Dim A As Long
 Dim B As Long
 Dim C As Long
+Dim FormulaRange As Range
+Dim PasteRange As Range
+
 
 
 
     ' Get the cell address of the current invoice number to use in the XLOOKUP formula
-    LookupInvoiceNo = Sage_Gross.Range("A" & i).Address(external:=True)
+    LookupInvoiceNo = Sage_Gross.Range("A" & i).Address(External:=True)
     
     ' Populate the Gross Vertex Sales Amount Column with XLOOKUP formula
-    Sage_Gross.Cells(i, Sage_Gross_LC + 1).Formula = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Vertex_Gross_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Gross_Gross.Address(external:=True) & ",""ERROR"",0),2)"
+    Sage_Gross.Cells(i, Sage_Gross_LC + 1).Formula = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Vertex_Gross_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Gross_Gross.Address(External:=True) & ",""ERROR"",0),2)"
     
     ' Populate the Gross Sales Variance Column with formula
    
@@ -5833,7 +5950,7 @@ Dim C As Long
     
     
     ' Populate Column Vertex Taxable Sales Excludes freight based on source with XLOOKUP formula
-    Sage_Gross.Cells(i, Sage_Gross_LC + 3).Formula = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_NontaxNoFreight_Taxable.Address(external:=True) & ",""ERROR"",0),2)"
+    Sage_Gross.Cells(i, Sage_Gross_LC + 3).Formula = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_NontaxNoFreight_Taxable.Address(External:=True) & ",""ERROR"",0),2)"
     
     ' Populate the Taxable Sales Variance Column with formula
     A = Sage_Gross.Cells.Find("Sage Taxable Sales").Column
@@ -5843,7 +5960,7 @@ Dim C As Long
   
     
     ' Populate the Vertex Exempt Sales Column (Excludes Freight) with XLOOKUP formula
-    Sage_Gross.Cells(i, Sage_Gross_LC + 5).Formula = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_NontaxNoFreight_Exempt.Address(external:=True) & ",0,0),2)"
+    Sage_Gross.Cells(i, Sage_Gross_LC + 5).Formula = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_NontaxNoFreight_Exempt.Address(External:=True) & ",0,0),2)"
     
     ' Populate the Exempt Sales Variance Column with formula
     A = Sage_Gross.Cells.Find("Sage Nontaxable Sales").Column
@@ -5853,7 +5970,7 @@ Dim C As Long
   
     
     ' Populate the Freight Sales Column (excludes marketplace sales) with XLOOKUP formula
-    Sage_Gross.Cells(i, Sage_Gross_LC + 7).Formula = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Freight_Gross.Address(external:=True) & ",0,0),2)"
+    Sage_Gross.Cells(i, Sage_Gross_LC + 7).Formula = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Freight_Gross.Address(External:=True) & ",0,0),2)"
     
     ' Populate the Freight Sales Variance Column (excludes marketplace sales) with formula
     A = Sage_Gross.Cells.Find("Sage Freight").Column
@@ -5862,7 +5979,7 @@ Dim C As Long
     Sage_Gross.Cells(i, C).Value = "=ROUND(" & Sage_Gross.Cells(i, A).Address(RowAbsolute:=False, ColumnAbsolute:=False) & "-" & Sage_Gross.Cells(i, B).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ",2)"
   
     ' Populate the Vertex Tax Amount Column with XLOOKUP formula
-    Sage_Gross.Cells(i, Sage_Gross_LC + 9).Formula = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Vertex_Tax_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Tax_Tax.Address(external:=True) & ",0,0),2)"
+    Sage_Gross.Cells(i, Sage_Gross_LC + 9).Formula = "=ROUND(XLOOKUP(A" & i & "," & Lookup_Vertex_Tax_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Tax_Tax.Address(External:=True) & ",0,0),2)"
     
     ' Populate the Tax Variance Column with formula
     A = Sage_Gross.Cells.Find("Sage Tax").Column
@@ -5872,8 +5989,16 @@ Dim C As Long
   
 Next i
 
-Application.Calculation = xlCalculationAutomatic
-Application.Calculate
+With Sage_Gross
+
+Set FormulaRange = .Range(.Cells(7, .Cells.Find("Vertex Gross Sales", lookat:=xlPart).Column), .Cells(7, .Cells.Find("Tax Variance", lookat:=xlPart).Column))
+Set PasteRange = .Range(.Cells(8, .Cells.Find("Vertex Gross Sales", lookat:=xlPart).Column), .Cells(Sage_Pivot_LR - 1, .Cells.Find("Tax Variance", lookat:=xlPart).Column))
+
+FormulaRange.Copy
+PasteRange.PasteSpecial xlPasteFormulas
+
+End With
+
 
 ' Resize columns in the Sage_Gross worksheet to fit data
 Sage_Gross.Columns.AutoFit
@@ -5881,8 +6006,8 @@ End Sub
 
 Sub Step_15_Secondary_Sage_Compare_Marketplace()
 
-Application.Calculation = xlCalculationManual
 
+Mktplc.Activate
 
 'Compare Data Exclusive of Marketplace Sales
 ' Initialize Mktplc_LC variable to the number of non-empty cells in the 6th row of the Mktplc worksheet
@@ -5900,19 +6025,22 @@ Mktplc.Cells(6, Mktplc_LC + 8).Value = "Freight Variance"
 Mktplc.Cells(6, Mktplc_LC + 9).Value = "Vertex Tax"
 Mktplc.Cells(6, Mktplc_LC + 10).Value = "Tax Variance"
 
-For i = 7 To WorksheetFunction.CountA(Mktplc.Range("A:A")) + 3
+
+
+For i = 7 To 8
 
 Dim A As Long
 Dim B As Long
 Dim C As Long
+Dim FormulaRange As Range
+Dim PasteRange As Range
 
-    
+    On Error Resume Next
     ' Get the address of the current invoice number for use in formulas
-    LookupInvoiceNo = Mktplc.Range("A" & i).Address(external:=True)
+    LookupInvoiceNo = Mktplc.Range("A" & i).Address(External:=True, RowAbsolute:=False)
     
     ' Populate the Gross Marketplace Sales Amount Column
-    Mktplc.Cells(i, Mktplc_LC + 1).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_GrossComp_Gross.Address(external:=True) & ",0,0),2)"
-    
+    Mktplc.Cells(i, Mktplc_LC + 1).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_GrossComp_Gross.Address(External:=True) & ",0,0),2)"
     ' Populate the Gross Sales Variance Column
     A = Mktplc.Cells.Find("Sage Gross Sales").Column
     B = Mktplc.Cells.Find("Vertex Gross Sales").Column
@@ -5921,7 +6049,7 @@ Dim C As Long
   
     
     ' Populate the Taxable Marketplace Sales Column (Excludes Freight)
-    Mktplc.Cells(i, Mktplc_LC + 3).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_NontaxNoFreight_Taxable.Address(external:=True) & ",0,0),2)"
+    Mktplc.Cells(i, Mktplc_LC + 3).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_NontaxNoFreight_Taxable.Address(External:=True) & ",0,0),2)"
     
     ' Populate the Taxable Sales Variance Column
     A = Mktplc.Cells.Find("Sage Taxable Sales").Column
@@ -5930,7 +6058,7 @@ Dim C As Long
     Mktplc.Cells(i, C).Value = "=ROUND(" & Mktplc.Cells(i, A).Address(RowAbsolute:=False, ColumnAbsolute:=False) & "-" & Mktplc.Cells(i, B).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ",2)"
        
     ' Populate the Marketplace Exempt Sales Column (Excludes Freight)
-    Mktplc.Cells(i, Mktplc_LC + 5).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_NontaxNoFreight_Exempt.Address(external:=True) & ",0,0),2)"
+    Mktplc.Cells(i, Mktplc_LC + 5).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_NontaxNoFreight_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_NontaxNoFreight_Exempt.Address(External:=True) & ",0,0),2)"
     
     ' Populate the Exempt Sales Variance Column
     A = Mktplc.Cells.Find("Sage Non-Taxable Sales").Column
@@ -5939,7 +6067,7 @@ Dim C As Long
     Mktplc.Cells(i, C).Value = "=ROUND(" & Mktplc.Cells(i, A).Address(RowAbsolute:=False, ColumnAbsolute:=False) & "-" & Mktplc.Cells(i, B).Address(RowAbsolute:=False, ColumnAbsolute:=False) & ",2)"
      
     ' Populate the Freight Sales Column (excludes non-marketplace sales)
-    Mktplc.Cells(i, Mktplc_LC + 7).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Freight_Gross.Address(external:=True) & ",0,0),2)"
+    Mktplc.Cells(i, Mktplc_LC + 7).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_Freight_Sales_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Freight_Gross.Address(External:=True) & ",0,0),2)"
     
     ' Populate the Freight Sales Variance Column (excludes non-marketplace sales)
     A = Mktplc.Cells.Find("Sage Freight").Column
@@ -5949,7 +6077,7 @@ Dim C As Long
 
     
     ' Populate the Marketplace Tax Amount Column
-    Mktplc.Cells(i, Mktplc_LC + 9).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_Tax_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_Tax_Tax.Address(external:=True) & ",0,0),2)"
+    Mktplc.Cells(i, Mktplc_LC + 9).Value = "=ROUND(XLOOKUP(" & LookupInvoiceNo & "," & Lookup_Vertex_Tax_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_Tax_Tax.Address(External:=True) & ",0,0),2)"
     
     ' Populate the Tax Variance Column
     A = Mktplc.Cells.Find("Sage Tax").Column
@@ -5960,8 +6088,21 @@ Dim C As Long
     
 Next i
 
-Application.Calculation = xlCalculationAutomatic
-Application.Calculate
+With Mktplc
+
+Set FormulaRange = Range(.Cells(7, .Cells.Find("Vertex Gross Sales", lookat:=xlPart).Column), .Cells(7, .Cells.Find("Tax Variance", lookat:=xlPart).Column))
+Set PasteRange = Range(.Cells(7, .Cells.Find("Vertex Gross Sales", lookat:=xlPart).Column), .Cells(.Cells.Find("Grand Total", lookat:=xlWhole).row, .Cells.Find("Tax Variance", lookat:=xlPart).Column))
+
+FormulaRange.Copy
+PasteRange.PasteSpecial xlPasteFormulas
+
+End With
+
+
+
+
+
+
 End Sub
 
 
@@ -5972,13 +6113,15 @@ Dim Index As Worksheet
 Dim Total_Worksheets As Integer
 Dim Counter As Integer
 Dim i As Integer
+Dim Address As String
+
 
 ' Hide specific sheets
 Sheets("Exemption Pivot Data").Visible = False
 Sheets("Exemption Report").Visible = False
 
 ' Create a new sheet for the index
-Set Index = Sheets.Add(After:=Sheets("Summary"))
+Set Index = Sheets.Add(after:=Sheets("Summary"))
 Index.Name = "Index"
 
 ' Set column headers and formatting
@@ -6005,77 +6148,81 @@ For i = 1 To Total_Worksheets
     End If
     
     ' Set sheet description and create hyperlink
+    
+    Address = Sheets(i).Range("A1").Address(External:=True)
+    Address = "'" & Right(Address, Len(Address) - WorksheetFunction.Find("]", Address))
+    
     If Sheets(i).Name = "Summary" Then
             Index.Range("B" & Counter - 1).Value = "Summary of Data between Vertex, Sage, and Tax Return Data. Return Data has to be manually input for comparison"
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "Vertex ET Non Freight" Then
             Index.Range("B" & Counter - 1).Value = "Pivot of Vertex Data by Invoice Number Excluding Freight Sales"
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "Exemption Report" Then
             Index.Range("B" & Counter - 1).Value = "Database of Customer Exemptions Generated from Vertex Config Report"
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "Error Report" Then
             Index.Range("B" & Counter - 1).Value = "Summary of Variances found between the Vertex and Sage Databases."
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "MKTPLCFAC" Then
             Index.Range("B" & Counter - 1).Value = "Pivot Table of Sage Marketplace Sales"
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "Vertex_Nontaxable" Then
             Index.Range("B" & Counter - 1).Value = "Working Sheet with Pivot of Vertex data compared to related sage data by document number including freight. Data is used to also determine exemption reason."
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "Vertex_Gross Compare" Then
             Index.Range("B" & Counter - 1).Value = "Working Sheet with Pivot of Vertex data compared to related sage data by document number including gross freight comparisons. Data is used in generation of Error Report sheet."
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "Vertex Pivot" Then
             Index.Range("B" & Counter - 1).Value = "Pivots of Vertex Data isolating both gross sales, taxable and exempt (Non taxable + exempt), total tax, and taxable and non-taxable freight for reverse freight taxability lookups. Each pivot is by document number"
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "Sage_Gross Compare" Then
             Index.Range("B" & Counter - 1).Value = "Working Sheet with Pivots of Sage Data combined with freight data and compared with vertex data used in generation of Error Report"
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "Sage Pivot" Then
             Index.Range("B" & Counter - 1).Value = "Pivot of Sage Sales Excluding Marketplace Sales"
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "Sage AR Data" Then
             Index.Range("B" & Counter - 1).Value = "Raw Sage Data downloaded directly from the back end"
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "Vertex" Then
             Index.Range("B" & Counter - 1).Value = "Raw Vertex Data downloaded directly from the vertex portal and filtered for the reconciliation state"
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "Credit Report" Then
             Index.Range("B" & Counter - 1).Value = "Downloaded Vertex Credit Report stored on Dropbox. This report is downloaded and saved monthly. It contains the jurisdiction information for timing differences between the Vertex generated returns and the data file. Credits Held are credits were insuficcent taxable sales occured to cover a credit, and credits applied is the application of a credit that was previously held."
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "Certificates" Then
             Index.Range("B" & Counter - 1).Value = "Data File for Python Script to Save and Archive PDF Certificates"
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            Index.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "Exemptions Report" Then
             Index.Range("B" & Counter - 1).Value = "Pivot Table of Vertex Sales by Exemption Reason"
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "Restocking Fees" Then
             Index.Range("B" & Counter - 1).Value = "Total amount of Restocking Fees Charged. This is used in determining whether a mixed case taxable and nontaxable sales document is because of a restocking fee."
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "HR City Tax" Then
             Index.Range("B" & Counter - 1).Value = "Pivot Table of Taxes Collected and Enforced by Home-Rule Jurisdictions used to reconcile CO State return to accrued tax."
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         ElseIf Sheets(i).Name = "CO HR Cities" Then
             Index.Range("B" & Counter - 1).Value = "Database of Cities in Colorado that have Home-Rule jurisdiction and Admin."
-            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Sheets(i).Range("A1").Address(external:=True), TextToDisplay:=Index.Range("B" & Counter - 1).Value
+            ActiveSheet.Hyperlinks.Add Anchor:=Index.Range("B" & Counter - 1), Address:="", SubAddress:=Address, TextToDisplay:=Index.Range("B" & Counter - 1).Value
             Index.Columns.AutoFit
         
     End If
@@ -6165,58 +6312,58 @@ SageCorrect.Range("C" & CounterH).Value = Sheets("Error Report").Range("B" & i).
 SageCorrect.Range("D" & CounterH).Value = "CM"
 
 'Customer No
-SageCorrect.Range("E" & CounterH).Value = "=TEXT(" & Sheets("Error Report").Range("C" & i).Address(external:=True) & ", " & Chr(34) & "0000000" & Chr(34) & ")"
+SageCorrect.Range("E" & CounterH).Value = "=TEXT(" & Sheets("Error Report").Range("C" & i).Address(External:=True) & ", " & Chr(34) & "0000000" & Chr(34) & ")"
 
 
 'Bill To Name
-SageCorrect.Range("F" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AC:AC," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("F" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AC:AC," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 
 
 'Bill To Address 1
-SageCorrect.Range("G" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AD:AD," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("G" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AD:AD," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 
 
 'Bill To Address 2
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("H" & CounterH).Value = ""
 Else
-SageCorrect.Range("H" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("H" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'Bill To Address 3
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("I" & CounterH).Value = ""
 Else
-SageCorrect.Range("I" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("I" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'Bill to City
 
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("J" & CounterH).Value = ""
 Else
-SageCorrect.Range("J" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("J" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'BillToState
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("K" & CounterH).Value = ""
 Else
-SageCorrect.Range("K" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("K" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'BillToZipCode
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("L" & CounterH).Value = ""
 Else
-SageCorrect.Range("L" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("L" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'BillToCountryCode
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("M" & CounterH).Value = ""
 Else
-SageCorrect.Range("M" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("M" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToCode
@@ -6227,59 +6374,59 @@ End If
 'End If
 
 'ShipToName
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("O" & CounterH).Value = ""
 Else
-SageCorrect.Range("O" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("O" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToAddress1
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("P" & CounterH).Value = ""
 Else
-SageCorrect.Range("P" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("P" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToAddress2
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("Q" & CounterH).Value = ""
 Else
-SageCorrect.Range("Q" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("Q" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToAddress3
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("R" & CounterH).Value = ""
 Else
-SageCorrect.Range("R" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("R" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShiptoCity
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("S" & CounterH).Value = ""
 Else
-SageCorrect.Range("S" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("S" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToState
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("T" & CounterH).Value = ""
 Else
-SageCorrect.Range("T" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("T" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToZipCode
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("U" & CounterH).Value = ""
 Else
-SageCorrect.Range("U" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("U" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToZipCode
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("V" & CounterH).Value = ""
 Else
-SageCorrect.Range("V" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("V" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'Tax Schedule
@@ -6288,17 +6435,17 @@ SageCorrect.Range("W" & CounterH).Value = "DEFAULT"
 
 'ApptoInvoice
 
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("X" & CounterH).Value = ""
 Else
-SageCorrect.Range("X" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("X" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 
 End If
 
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("Y" & CounterH).Value = ""
 Else
-SageCorrect.Range("Y" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("Y" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 
 End If
 
@@ -6327,9 +6474,9 @@ SageCorrect.Range("E" & CounterL).Value = "1"
 SageCorrect.Range("E" & CounterL + 1).Value = "1"
 
 'LineItem UnitPrice
-SageCorrect.Range("F" & CounterL).Value = "=" & Sheets("Error Report").Range("O" & i).Address(external:=True)
+SageCorrect.Range("F" & CounterL).Value = "=" & Sheets("Error Report").Range("O" & i).Address(External:=True)
 SageCorrect.Range("F" & CounterL).NumberFormat = "General"
-SageCorrect.Range("F" & CounterL + 1).Value = "=-" & Sheets("Error Report").Range("O" & i).Address(external:=True)
+SageCorrect.Range("F" & CounterL + 1).Value = "=-" & Sheets("Error Report").Range("O" & i).Address(External:=True)
 SageCorrect.Range("F" & CounterL + 1).NumberFormat = "General"
 
 'LineItem Cost
@@ -6370,54 +6517,54 @@ SageCorrect.Range("E" & CounterH).Value = Sheets("Error Report").Range("C" & i).
 
 
 'Bill To Name
-SageCorrect.Range("F" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AC:AC," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("F" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AC:AC," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 
 
 'Bill To Address 1
-SageCorrect.Range("G" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AD:AD," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("G" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AD:AD," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 
 
 'Bill To Address 2
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("H" & CounterH).Value = ""
 Else
-SageCorrect.Range("H" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("H" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'Bill To Address 3
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("I" & CounterH).Value = ""
 Else
-SageCorrect.Range("I" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("I" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'Bill to City
 
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("J" & CounterH).Value = ""
 Else
-SageCorrect.Range("J" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("J" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'BillToState
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("K" & CounterH).Value = ""
 Else
-SageCorrect.Range("K" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("K" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'BillToZipCode
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("L" & CounterH).Value = ""
 Else
-SageCorrect.Range("L" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("L" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'BillToCountryCode
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("M" & CounterH).Value = ""
 Else
-SageCorrect.Range("M" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("M" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToCode
@@ -6428,59 +6575,59 @@ End If
 'End If
 
 'ShipToName
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("O" & CounterH).Value = ""
 Else
-SageCorrect.Range("O" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("O" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToAddress1
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("P" & CounterH).Value = ""
 Else
-SageCorrect.Range("P" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("P" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToAddress2
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("Q" & CounterH).Value = ""
 Else
-SageCorrect.Range("Q" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("Q" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToAddress3
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("R" & CounterH).Value = ""
 Else
-SageCorrect.Range("R" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("R" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShiptoCity
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("S" & CounterH).Value = ""
 Else
-SageCorrect.Range("S" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("S" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToState
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("T" & CounterH).Value = ""
 Else
-SageCorrect.Range("T" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("T" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToZipCode
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("U" & CounterH).Value = ""
 Else
-SageCorrect.Range("U" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("U" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToZipCode
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("V" & CounterH).Value = ""
 Else
-SageCorrect.Range("V" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("V" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'Tax Schedule
@@ -6489,17 +6636,17 @@ SageCorrect.Range("W" & CounterH).Value = "DEFAULT"
 
 'ApptoInvoice
 
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("X" & CounterH).Value = ""
 Else
-SageCorrect.Range("X" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("X" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 
 End If
 
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("Y" & CounterH).Value = ""
 Else
-SageCorrect.Range("Y" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("Y" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 
 End If
 
@@ -6528,9 +6675,9 @@ SageCorrect.Range("E" & CounterL).Value = "1"
 SageCorrect.Range("E" & CounterL + 1).Value = "1"
 
 'LineItem UnitPrice
-SageCorrect.Range("F" & CounterL).Value = "=" & Sheets("Error Report").Range("O" & i).Address(external:=True)
+SageCorrect.Range("F" & CounterL).Value = "=" & Sheets("Error Report").Range("O" & i).Address(External:=True)
 SageCorrect.Range("F" & CounterL).NumberFormat = "General"
-SageCorrect.Range("F" & CounterL + 1).Value = "=-" & Sheets("Error Report").Range("O" & i).Address(external:=True)
+SageCorrect.Range("F" & CounterL + 1).Value = "=-" & Sheets("Error Report").Range("O" & i).Address(External:=True)
 SageCorrect.Range("F" & CounterL + 1).NumberFormat = "General"
 
 'LineItem Cost
@@ -6577,54 +6724,54 @@ SageCorrect.Range("C" & CounterH).Value = Sheets("Error Report").Range("B" & i).
 
 
     'Bill To Name
-    SageCorrect.Range("F" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AC:AC," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("F" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AC:AC," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 
 
     'Bill To Address 1
-    SageCorrect.Range("G" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AD:AD," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("G" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AD:AD," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     
     
     'Bill To Address 2
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
     SageCorrect.Range("H" & CounterH).Value = ""
     Else
-    SageCorrect.Range("H" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("H" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
     
     'Bill To Address 3
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
     SageCorrect.Range("I" & CounterH).Value = ""
     Else
-    SageCorrect.Range("I" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("I" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
     
     'Bill to City
     
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
     SageCorrect.Range("J" & CounterH).Value = ""
     Else
-    SageCorrect.Range("J" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("J" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
     
     'BillToState
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
     SageCorrect.Range("K" & CounterH).Value = ""
     Else
-    SageCorrect.Range("K" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("K" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
     
     'BillToZipCode
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
     SageCorrect.Range("L" & CounterH).Value = ""
     Else
-    SageCorrect.Range("L" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("L" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
     
     'BillToCountryCode
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
     SageCorrect.Range("M" & CounterH).Value = ""
     Else
-    SageCorrect.Range("M" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("M" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
 
     'ShipToCode
@@ -6635,75 +6782,75 @@ SageCorrect.Range("C" & CounterH).Value = Sheets("Error Report").Range("B" & i).
     'End If
 
     'ShipToName
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
     SageCorrect.Range("O" & CounterH).Value = ""
     Else
-    SageCorrect.Range("O" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("O" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
 
     'ShipToAddress1
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
     SageCorrect.Range("P" & CounterH).Value = ""
     Else
-    SageCorrect.Range("P" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("P" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
 
     'ShipToAddress2
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
     SageCorrect.Range("Q" & CounterH).Value = ""
     Else
-    SageCorrect.Range("Q" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("Q" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
 
     'ShipToAddress3
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
     SageCorrect.Range("R" & CounterH).Value = ""
     Else
-    SageCorrect.Range("R" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("R" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
 
     'ShiptoCity
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
     SageCorrect.Range("S" & CounterH).Value = ""
     Else
-    SageCorrect.Range("S" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("S" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
 
     'ShipToState
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
     SageCorrect.Range("T" & CounterH).Value = ""
     Else
-    SageCorrect.Range("T" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("T" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
 
     'ShipToZipCode
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
     SageCorrect.Range("U" & CounterH).Value = ""
     Else
-    SageCorrect.Range("U" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("U" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
 
     'ShipToZipCode
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
         SageCorrect.Range("V" & CounterH).Value = ""
         Else
-        SageCorrect.Range("V" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+        SageCorrect.Range("V" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
 
     'Tax Schedule
         SageCorrect.Range("W" & CounterH).Value = "DEFAULT"
 
     'ApptoInvoice
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
     SageCorrect.Range("X" & CounterH).Value = ""
     Else
-    SageCorrect.Range("X" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+    SageCorrect.Range("X" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
 
-    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+    If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
         SageCorrect.Range("Y" & CounterH).Value = ""
             Else
-                SageCorrect.Range("Y" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+                SageCorrect.Range("Y" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)"
     End If
 
     SageCorrect.Range("Z" & CounterH).Value = ""
@@ -6731,9 +6878,9 @@ SageCorrect.Range("E" & CounterL).Value = "1"
 SageCorrect.Range("E" & CounterL + 1).Value = "1"
 
 'LineItem UnitPrice
-SageCorrect.Range("F" & CounterL).Value = "=" & Sheets("Error Report").Range("O" & i).Address(external:=True)
+SageCorrect.Range("F" & CounterL).Value = "=" & Sheets("Error Report").Range("O" & i).Address(External:=True)
 SageCorrect.Range("F" & CounterL).NumberFormat = "General"
-SageCorrect.Range("F" & CounterL + 1).Value = "=-" & Sheets("Error Report").Range("O" & i).Address(external:=True)
+SageCorrect.Range("F" & CounterL + 1).Value = "=-" & Sheets("Error Report").Range("O" & i).Address(External:=True)
 SageCorrect.Range("F" & CounterL + 1).NumberFormat = "General"
 
 'LineItem Cost
@@ -6773,54 +6920,54 @@ SageCorrect.Range("E" & CounterH).Value = Sheets("Error Report").Range("C" & i).
 
 
 'Bill To Name
-SageCorrect.Range("F" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AC:AC," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("F" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AC:AC," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 
 
 'Bill To Address 1
-SageCorrect.Range("G" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AD:AD," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("G" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AD:AD," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 
 
 'Bill To Address 2
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("H" & CounterH).Value = ""
 Else
-SageCorrect.Range("H" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("H" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AE:AE," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'Bill To Address 3
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("I" & CounterH).Value = ""
 Else
-SageCorrect.Range("I" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("I" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AF:AF," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'Bill to City
 
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("J" & CounterH).Value = ""
 Else
-SageCorrect.Range("J" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("J" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AG:AG," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'BillToState
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("K" & CounterH).Value = ""
 Else
-SageCorrect.Range("K" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("K" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AH:AH," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'BillToZipCode
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("L" & CounterH).Value = ""
 Else
-SageCorrect.Range("L" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("L" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AI:AI," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'BillToCountryCode
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("M" & CounterH).Value = ""
 Else
-SageCorrect.Range("M" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("M" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AJ:AJ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToCode
@@ -6831,59 +6978,59 @@ End If
 'End If
 
 'ShipToName
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("O" & CounterH).Value = ""
 Else
-SageCorrect.Range("O" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("O" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AL:AL," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToAddress1
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("P" & CounterH).Value = ""
 Else
-SageCorrect.Range("P" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("P" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AM:AM," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToAddress2
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("Q" & CounterH).Value = ""
 Else
-SageCorrect.Range("Q" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("Q" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AN:AN," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToAddress3
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("R" & CounterH).Value = ""
 Else
-SageCorrect.Range("R" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("R" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AO:AO," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShiptoCity
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("S" & CounterH).Value = ""
 Else
-SageCorrect.Range("S" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("S" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AP:AP," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToState
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("T" & CounterH).Value = ""
 Else
-SageCorrect.Range("T" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("T" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AQ:AQ," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToZipCode
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("U" & CounterH).Value = ""
 Else
-SageCorrect.Range("U" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("U" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AR:AR," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'ShipToZipCode
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("V" & CounterH).Value = ""
 Else
-SageCorrect.Range("V" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("V" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!AS:AS," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 End If
 
 'Tax Schedule
@@ -6892,17 +7039,17 @@ SageCorrect.Range("W" & CounterH).Value = "DEFAULT"
 
 'ApptoInvoice
 
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("X" & CounterH).Value = ""
 Else
-SageCorrect.Range("X" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("X" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!A:A," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 
 End If
 
-If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
+If Evaluate("=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)") = 0 Then
 SageCorrect.Range("Y" & CounterH).Value = ""
 Else
-SageCorrect.Range("Y" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(external:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)"
+SageCorrect.Range("Y" & CounterH).Value = "=XLOOKUP(" & Sheets("Error Report").Range("A" & i).Address(External:=True) & ",'Sage AR Data'!EH:EH,'Sage AR Data'!CY:CY," & Chr(34) & "ERROR" & Chr(34) & ",0)"
 
 End If
 
@@ -6931,9 +7078,9 @@ SageCorrect.Range("E" & CounterL).Value = "1"
 SageCorrect.Range("E" & CounterL + 1).Value = "1"
 
 'LineItem UnitPrice
-SageCorrect.Range("F" & CounterL).Value = "=" & Sheets("Error Report").Range("O" & i).Address(external:=True)
+SageCorrect.Range("F" & CounterL).Value = "=" & Sheets("Error Report").Range("O" & i).Address(External:=True)
 SageCorrect.Range("F" & CounterL).NumberFormat = "General"
-SageCorrect.Range("F" & CounterL + 1).Value = "=-" & Sheets("Error Report").Range("O" & i).Address(external:=True)
+SageCorrect.Range("F" & CounterL + 1).Value = "=-" & Sheets("Error Report").Range("O" & i).Address(External:=True)
 SageCorrect.Range("F" & CounterL + 1).NumberFormat = "General"
 
 'LineItem Cost
@@ -6993,7 +7140,7 @@ Sub CleanErrorReport()
     Application.ScreenUpdating = False
     Set ErrorReport = ActiveWorkbook.Sheets("Error Report")
     Starting = 3 + 1
-    Ending = LastRow(ErrorReport)
+    Ending = lastRow(ErrorReport)
     shipToStateCol = Application.Match("Ship To State", ErrorReport.Range("3:3"), 0)
     Set ShipToStateRange = ErrorReport.Range(ErrorReport.Cells(Starting, shipToStateCol), ErrorReport.Cells(Ending, shipToStateCol))
     
@@ -7015,8 +7162,8 @@ Sub CleanErrorReport()
 End Sub
 
 
-Function LastRow(ws As Worksheet) As Long
-    LastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).row
+Function lastRow(ws As Worksheet) As Long
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).row
 End Function
 Function INDEV_CheckState(str As String) As Boolean
     Dim stateList() As Variant
@@ -7078,7 +7225,7 @@ If ReconState = "AZ" Or ReconState = "ARIZONA" Then
     
     Set Arizona_Marketplace_Pivot_STATE = Vertex_Data_Cache.CreatePivotTable( _
             TableDestination:=Arizona.Range("A5"), _
-            TableName:="Vertex_MarketPlace_AZ_STATE")
+            tableName:="Vertex_MarketPlace_AZ_STATE")
         Set Arizona_Marketplace_Pivot_Fields_Jurisdiction_Type = Arizona_Marketplace_Pivot_STATE.PivotFields("Jurisdiction Type")
         Set Arizona_Marketplace_Pivot_Fields_Document_Number = Arizona_Marketplace_Pivot_STATE.PivotFields("Document Number")
         Set Arizona_Marketplace_Pivot_Fields_Gross_Sales = Arizona_Marketplace_Pivot_STATE.CalculatedFields.Add(Name:="Vertex Gross Sales", Formula:="='Extended Price'")
@@ -7146,7 +7293,7 @@ Set Arizona = Sheets("Arizona Mktplc_State")
 
     Set Arizona_Marketplace_Pivot_CITY = Vertex_Data_Cache.CreatePivotTable( _
             TableDestination:=Arizona_Markplace_Pivot_CityStart, _
-            TableName:="Vertex_MarketPlace_AZ_CITY")
+            tableName:="Vertex_MarketPlace_AZ_CITY")
 
     'Set the same configurations for the CITY pivot table as the STATE one
     'Adjustments will be made for the Jurisdiction Type filter below
@@ -7215,7 +7362,7 @@ If ReconState = "DC" Or ReconState = "DISTRICT OF COLUMBIA" Then
     
     Set DC_Excluded_Sales_Pivot = Vertex_Data_Cache.CreatePivotTable( _
             TableDestination:=DC_Excluded_Sales_WS.Range("A5"), _
-            TableName:="DC_Excluded_Sales")
+            tableName:="DC_Excluded_Sales")
     
     With DC_Excluded_Sales_Pivot
         Set DC_Excluded_Sales_Pivotfields_Trimmed_Invoice_No = .PivotFields("Trimmed Invoice No")
@@ -7239,30 +7386,169 @@ If ReconState = "DC" Or ReconState = "DISTRICT OF COLUMBIA" Then
                                 Pivot_Loop_Item.Visible = False
                     End If
             Next Pivot_Loop_Item
-       grandTotal = .DataFields(1).dataRange.Cells(.DataFields(1).dataRange.Cells.Count + 1).Address(external:=True)
+       grandTotal = .DataFields(1).dataRange.Cells(.DataFields(1).dataRange.Cells.Count + 1).Address(External:=True)
        
         
     End With
-
-        
-    
-
-                
+          
+               
         
         With Summary
         .Activate
         Set SummaryExempt = Summary.Range("E6")
-        SummaryExempt.Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_GrossComp_Exempt.Address(external:=True) & ",0,0)" & "+" & grandTotal
-        Summary.Range("E4").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(external:=True) & "," & Lookup_Vertex_GrossComp_Gross.Address(external:=True) & ",0,0)" & "+" & grandTotal
+        SummaryExempt.Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_GrossComp_Exempt.Address(External:=True) & ",0,0)" & "+" & grandTotal
+        Summary.Range("E4").Value = "=Xlookup(" & Chr(34) & "Grand Total" & Chr(34) & "," & Lookup_Vertex_GrossComp_InvoiceNo.Address(External:=True) & "," & Lookup_Vertex_GrossComp_Gross.Address(External:=True) & ",0,0)" & "+" & grandTotal
 
         End With
         
 End If
 
+
+
+If ReconState = "CA" Or ReconState = "CALIFORNIA" Or ReconState = "California" Or ReconState = "Ca" Then
+    Call Step_26_Secondary_California
+    
+End If
+
+
+
 End Sub
 
-Function StateAbbreviation(state As String) As String
-    Select Case UCase(state)
+Sub Step_26_Secondary_California()
+
+Dim lastCol As Long
+Dim lastRow As Long
+Dim CA_Mapping As Workbook
+Dim CA_Mapping_Data As Worksheet
+Dim Vertex_TaxArea_ID_Col As Long
+Dim Vertex_TaxArea_ID As Range
+Dim Mapping_TaxArea_ID_Col As Long
+Dim Mapping_TaxArea_ID As Range
+Dim Mapping_Sch_B_Col As Long
+Dim Mapping_Sch_B As Range
+Dim Mapping_Sch_B_Name_Col As Long
+Dim Mapping_Sch_B_Name As Range
+
+Dim Mapping_Sch_C_Col As Long
+Dim Mapping_Sch_C As Range
+Dim Mapping_Sch_C_Name_Col As Long
+Dim Mapping_Sch_C_Name As Range
+
+
+Dim Vertex_Situs_Tax_Area_Col As Long
+Dim Vertex_Situs_Tax_Area As Range
+Dim Vertex_Fill_Range As Range
+Dim Vertex_Source_Range As Range
+Dim Vertex_LR As Long
+Dim Vertex_LC As Long
+Dim Mapping_LR As Long
+Dim Mapping_LC As Long
+Dim Vertex_Txn_ID_Col As Long
+Dim Vertex_Txn_ID As Range
+
+
+Set CA_Mapping = Workbooks.Open("C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\CA\CA Tax Area ID Mapping.xlsx")
+Set CA_Mapping_Data = CA_Mapping.Sheets(1)
+
+
+With CA_Mapping_Data
+
+'Define Last Row of Lookup Data
+Mapping_LR = WorksheetFunction.CountA(.Range("A:A"))
+'Define Last Column of Lookup Data
+Mapping_LC = WorksheetFunction.CountA(.Range("1:1"))
+'Define Dimensions of Mapping Referenc Primary Key Column
+Mapping_TaxArea_ID_Col = 1
+Set Mapping_TaxArea_ID = .Range(.Cells(2, Mapping_TaxArea_ID_Col), .Cells(Mapping_LR, Mapping_TaxArea_ID_Col))
+
+
+'Define Dimensions of Mapping Reference Schedule C Retrieval
+Mapping_Sch_C_Col = .Cells.Find("Schedule C Code").Column
+Set Mapping_Sch_C = .Range(.Cells(2, Mapping_Sch_C_Col), .Cells(Mapping_LR, Mapping_Sch_C_Col))
+
+'Define Dimensions of Mapping Reference Schedule C Name
+Mapping_Sch_C_Name_Col = .Cells.Find("Schedule C Name").Column
+Set Mapping_Sch_C_Name = .Range(.Cells(2, Mapping_Sch_C_Name_Col), .Cells(Mapping_LR, Mapping_Sch_C_Name_Col))
+
+
+'Define Dimensions of Mapping Reference Schedule C Retrieval
+Mapping_Sch_B_Col = .Cells.Find("Schedule B Code").Column
+Set Mapping_Sch_B = .Range(.Cells(2, Mapping_Sch_B_Col), .Cells(Mapping_LR, Mapping_Sch_B_Col))
+
+'Define Dimensions of Mapping Reference Schedule C Name
+Mapping_Sch_B_Name_Col = .Cells.Find("Schedule B Name").Column
+Set Mapping_Sch_B_Name = .Range(.Cells(2, Mapping_Sch_B_Name_Col), .Cells(Mapping_LR, Mapping_Sch_B_Name_Col))
+
+
+End With
+
+With Vertex
+
+
+
+Vertex_LR = WorksheetFunction.CountA(.Range("CU:CU"))
+Vertex_LC = WorksheetFunction.CountA(.Range("1:1"))
+Vertex_Situs_Tax_Area_Col = .Cells.Find("Situs Tax Area ID").Column
+Set Vertex_Situs_Tax_Area = .Range(.Cells(2, Vertex_Situs_Tax_Area_Col), .Cells(Vertex_LR, Vertex_Situs_Tax_Area_Col))
+
+
+' Populate Vertex with Schedule B Code
+Vertex.Cells(1, Vertex_LC + 1).Value = "California Schedule B Code"
+Vertex.Cells(2, Vertex_LC + 1).Value = "=XLOOKUP(" & .Cells(2, Vertex_Situs_Tax_Area_Col).Address(RowAbsolute:=False, ColumnAbsolute:=True) & "," & Mapping_TaxArea_ID.Address(External:=True) & "," & Mapping_Sch_C.Address(External:=True) & "," & """&""" & ",0)"
+Set Vertex_Fill_Range = .Range(.Cells(3, Vertex_LC + 1), .Cells(Vertex_LR, Vertex_LC + 1))
+Set Vertex_Source_Range = Vertex.Cells(2, Vertex_LC + 1)
+Vertex_Source_Range.Copy
+Vertex_Fill_Range.PasteSpecial xlPasteFormulas
+
+'Reset Vertex LC
+
+Vertex_LC = WorksheetFunction.CountA(.Range("1:1"))
+
+' Populate Vertex with Schedule B Name
+Vertex.Cells(1, Vertex_LC + 1).Value = "California Schedule B Name"
+Vertex.Cells(2, Vertex_LC + 1).Value = "=XLOOKUP(" & .Cells(2, Vertex_Situs_Tax_Area_Col).Address(RowAbsolute:=False, ColumnAbsolute:=True) & "," & Mapping_TaxArea_ID.Address(External:=True) & "," & Mapping_Sch_C_Name.Address(External:=True) & "," & """&""" & ",0)"
+Set Vertex_Fill_Range = .Range(.Cells(3, Vertex_LC + 1), .Cells(Vertex_LR, Vertex_LC + 1))
+Set Vertex_Source_Range = Vertex.Cells(2, Vertex_LC + 1)
+Vertex_Source_Range.Copy
+Vertex_Fill_Range.PasteSpecial xlPasteFormulas
+
+
+'Reset Vertex LC
+
+Vertex_LC = WorksheetFunction.CountA(.Range("1:1"))
+
+' Populate Vertex with Schedule C Code
+Vertex.Cells(1, Vertex_LC + 1).Value = "California Schedule C Code"
+Vertex.Cells(2, Vertex_LC + 1).Value = "=XLOOKUP(" & .Cells(2, Vertex_Situs_Tax_Area_Col).Address(RowAbsolute:=False, ColumnAbsolute:=True) & "," & Mapping_TaxArea_ID.Address(External:=True) & "," & Mapping_Sch_B.Address(External:=True) & "," & """&""" & ",0)"
+Set Vertex_Fill_Range = .Range(.Cells(3, Vertex_LC + 1), .Cells(Vertex_LR, Vertex_LC + 1))
+Set Vertex_Source_Range = Vertex.Cells(2, Vertex_LC + 1)
+Vertex_Source_Range.Copy
+Vertex_Fill_Range.PasteSpecial xlPasteFormulas
+
+'Reset Vertex LC
+
+Vertex_LC = WorksheetFunction.CountA(.Range("1:1"))
+
+' Populate Vertex with Schedule C Name
+Vertex.Cells(1, Vertex_LC + 1).Value = "California Schedule C Name"
+Vertex.Cells(2, Vertex_LC + 1).Value = "=XLOOKUP(" & .Cells(2, Vertex_Situs_Tax_Area_Col).Address(RowAbsolute:=False, ColumnAbsolute:=True) & "," & Mapping_TaxArea_ID.Address(External:=True) & "," & Mapping_Sch_B_Name.Address(External:=True) & "," & """&""" & ",0)"
+Set Vertex_Fill_Range = .Range(.Cells(3, Vertex_LC + 1), .Cells(Vertex_LR, Vertex_LC + 1))
+Set Vertex_Source_Range = Vertex.Cells(2, Vertex_LC + 1)
+Vertex_Source_Range.Copy
+Vertex_Fill_Range.PasteSpecial xlPasteFormulas
+
+
+End With
+
+
+
+
+End Sub
+
+
+
+Function StateAbbreviation(State As String) As String
+    Select Case UCase(State)
         Case "ARIZONA"
             StateAbbreviation = "AZ"
         Case "ALASKA"
@@ -7278,6 +7564,8 @@ Function StateAbbreviation(state As String) As String
         Case "CONNECTICUT"
             StateAbbreviation = "CT"
         Case "DISTRICT OF COLUMBIA"
+            StateAbbreviation = "DC"
+        Case "WASHINGTON DC"
             StateAbbreviation = "DC"
         Case "DELAWARE"
             StateAbbreviation = "DE"
@@ -7513,7 +7801,7 @@ Next pf
  CustomerNo.PivotFilters.Add Type:=xlCaptionDoesNotEqual, Value1:="(blank)"
 
 ' Determine the last row of the Pivot Table
-Dim LastRow As Long
+Dim lastRow As Long
 
 
 Exempt_Customers.Range("D6").Value = "Vertex Customer Code"
@@ -7524,27 +7812,27 @@ Exempt_Customers.Range("H6").Value = "Period"
 Exempt_Customers.Range("I6").Value = "Year"
 Exempt_Customers.Columns.AutoFit
 
-LastRow = Exempt_Customers.Cells(Exempt_Customers.Rows.Count, "A").End(xlUp).row
+lastRow = Exempt_Customers.Cells(Exempt_Customers.Rows.Count, "A").End(xlUp).row
 
 ' Add the Customer Code column (formatted to 9 digits)
 Exempt_Customers.Range("D7").Formula = "=TEXT(A7, ""000000000"")"
-Exempt_Customers.Range("D7").AutoFill Destination:=Exempt_Customers.Range("D7:D" & LastRow)
+Exempt_Customers.Range("D7").AutoFill Destination:=Exempt_Customers.Range("D7:D" & lastRow)
 
 ' Add the Exemption Reason column using INDEX and MATCH to retrieve tax result from Exemption Report's column G
 Exempt_Customers.Range("E7").Formula = _
     "=IFERROR(INDEX('Exemption Report'!D:D, MATCH(D7, 'Exemption Report'!C:C, 0)), """")"
-Exempt_Customers.Range("E7").AutoFill Destination:=Exempt_Customers.Range("E7:E" & LastRow)
+Exempt_Customers.Range("E7").AutoFill Destination:=Exempt_Customers.Range("E7:E" & lastRow)
 
 ' Add the next column using INDEX and MATCH to retrieve value from Exemption Report's column F
 Exempt_Customers.Range("F7").Formula = _
     "=IFERROR(INDEX('Exemption Report'!G:G, MATCH(D7, 'Exemption Report'!C:C, 0)), """")"
-Exempt_Customers.Range("F7").AutoFill Destination:=Exempt_Customers.Range("F7:F" & LastRow)
+Exempt_Customers.Range("F7").AutoFill Destination:=Exempt_Customers.Range("F7:F" & lastRow)
 
 Exempt_Customers.Range("G7").Formula = _
     "=IFERROR(INDEX('Exemption Report'!F:F, MATCH(D7, 'Exemption Report'!C:C, 0)), """")"
-Exempt_Customers.Range("G7").AutoFill Destination:=Exempt_Customers.Range("G7:G" & LastRow)
+Exempt_Customers.Range("G7").AutoFill Destination:=Exempt_Customers.Range("G7:G" & lastRow)
 
-For i = 7 To LastRow - 1
+For i = 7 To lastRow - 1
 Exempt_Customers.Range("H" & i).Formula = Format(Month(Sheets("Exempt_Customers").Range("B" & i).Value), "00")
 'Exempt_Customers.Range("H7").AutoFill Destination:=Exempt_Customers.Range("H7:H" & LastRow)
 Exempt_Customers.Range("I" & i).Formula = Year(Sheets("Exempt_Customers").Range("B" & i).Value)
@@ -7554,7 +7842,7 @@ Next i
 
 ' Create the Certificates sheet
 Dim Certificates As Worksheet
-Set Certificates = Sheets.Add(After:=Exempt_Customers)
+Set Certificates = Sheets.Add(after:=Exempt_Customers)
 Certificates.Name = "Certificates"
 
 ' Set up headers for the Certificates sheet in lowercase
@@ -7568,7 +7856,7 @@ Dim CertificatesRow As Long
 CertificatesRow = 2 ' Start from row 2 as row 1 has headers
 
 ' Loop through each row in the Exempt_Customers sheet and check the Tax Result
-For i = 7 To LastRow ' Assuming data starts at row 7
+For i = 7 To lastRow ' Assuming data starts at row 7
     If Exempt_Customers.Cells(i, 6).Value = "Taxable" Then ' Change this condition based on your actual data
         ' Copy data to Certificates sheet
         Certificates.Cells(CertificatesRow, 1).Value = Exempt_Customers.Cells(i, 5).Value
@@ -7576,7 +7864,7 @@ For i = 7 To LastRow ' Assuming data starts at row 7
         Certificates.Cells(CertificatesRow, 3).Value = Exempt_Customers.Cells(i, 9).Value
         Certificates.Cells(CertificatesRow, 4).Value = Exempt_Customers.Cells(i, 8).Value
         Certificates.Cells(CertificatesRow, 5).Value = Exempt_Customers.Cells(i, 7).Value
-        Certificates.Cells(CertificatesRow, 6).Value = "=" & Exempt_Customers.Cells(i, 4).Address(external:=True)
+        Certificates.Cells(CertificatesRow, 6).Value = "=" & Exempt_Customers.Cells(i, 4).Address(External:=True)
         CertificatesRow = CertificatesRow + 1 ' Move to the next row for the next record
     End If
 Next i
@@ -7623,11 +7911,11 @@ Dim creditsapplied As Range
 
 With Summary
     Summary.Activate
-    Cedit_Held_Row = Cells.Find("Credits Held", LookAt:=xlPart).row
-    Cedit_Applied_Row = Cells.Find("Credits Applied", LookAt:=xlPart).row
-    Sales_Tax_Amt_Row = Cells.Find("Sales Tax:", LookAt:=xlPart).row
+    Cedit_Held_Row = Cells.Find("Credits Held", lookat:=xlPart).row
+    Cedit_Applied_Row = Cells.Find("Credits Applied", lookat:=xlPart).row
+    Sales_Tax_Amt_Row = Cells.Find("Sales Tax:", lookat:=xlPart).row
     
-    Header_Info_Col = Cells.Find("Gross Sales:", LookAt:=xlPart).Column
+    Header_Info_Col = Cells.Find("Gross Sales:", lookat:=xlPart).Column
     Sage_Date_Col = Header_Info_Col + 6
 
     Set salestaxamt = Cells(Sales_Tax_Amt_Row, Sage_Date_Col)
@@ -7668,7 +7956,7 @@ UploadSheet.Cells(2, 6).Value = 0
 'Sales Tax Payable Line
 UploadSheet.Cells(3, 1).Value = "L"
 UploadSheet.Cells(3, 2).Value = Step_27_Secondary_Determine_Payable_Account(StateAbbreviation(ReconState))
-UploadSheet.Cells(3, 3).Value = "=" & salestaxamt.Address(external:=True)
+UploadSheet.Cells(3, 3).Value = "=" & salestaxamt.Address(External:=True)
 UploadSheet.Cells(3, 3).NumberFormat = "General"
 UploadSheet.Cells(3, 4).Value = Format(EndDate, "YYYY-MM-DD") & " " & StateAbbreviation(ReconState) & " Sales Tax Liability Payment"
 
@@ -7676,14 +7964,14 @@ UploadSheet.Cells(3, 4).Value = Format(EndDate, "YYYY-MM-DD") & " " & StateAbbre
 'Sales Tax Credits Held Line
 UploadSheet.Cells(4, 1).Value = "L"
 UploadSheet.Cells(4, 2).Value = "9999900BH"
-UploadSheet.Cells(4, 3).Value = "=" & creditsheld.Address(external:=True)
+UploadSheet.Cells(4, 3).Value = "=" & creditsheld.Address(External:=True)
 UploadSheet.Cells(4, 3).NumberFormat = "General"
 UploadSheet.Cells(4, 4).Value = Format(EndDate, "YYYY-MM-DD") & " " & StateAbbreviation(ReconState) & " Sales Tax Credit Held"
 
 'Sales Tax Credits Applied Line
 UploadSheet.Cells(5, 1).Value = "L"
 UploadSheet.Cells(5, 2).Value = "9999900BH"
-UploadSheet.Cells(5, 3).Value = "=" & creditsapplied.Address(external:=True)
+UploadSheet.Cells(5, 3).Value = "=" & creditsapplied.Address(External:=True)
 UploadSheet.Cells(5, 3).NumberFormat = "General"
 UploadSheet.Cells(5, 4).Value = Format(EndDate, "YYYY-MM-DD") & " " & StateAbbreviation(ReconState) & " Sales Tax Credit Applied"
 
@@ -7724,10 +8012,10 @@ End If
 
 End Sub
 
-Function Step_27_Secondary_Determine_Payable_Account(state As String) As String
+Function Step_27_Secondary_Determine_Payable_Account(State As String) As String
 
 
-Select Case UCase(state)
+Select Case UCase(State)
     Case "CA"
         Step_27_Secondary_Determine_Payable_Account = "9999900AA"
     Case "CO"
@@ -7788,4 +8076,569 @@ Function Step_27_Secondary_Calculate_Due_Date(start As String) As String
     ' Format the date as mm/dd/yyyy
     Step_27_Secondary_Calculate_Due_Date = Format(ending_point, "mm/dd/yyyy")
 End Function
+Sub Step_01_Secondary_Import_CO_BranchIDs()
 
+Dim Filepath As String
+Dim Branch_ID_Data As Workbook
+Dim Branch_IDs As Worksheet
+Dim Branch_IDs_Generic_ID As Range
+Dim Branch_IDs_Tax_Return_Code As Range
+Dim Branch_IDs_LR As Long
+Dim Branch_ID_HR As Long
+Dim Branch_ID_Generic_ID_Col As Long
+Dim Branch_ID_Tax_Return_Code_Col As Long
+Dim Situs_Tax_ID As Range
+Dim Situs_Tax_ID_Col As Long
+Dim Situs_City_Col As Long
+Dim Situs_City As Range
+Dim Jurisdiction_Type_Col As Long
+
+
+
+Dim Vertex_LC As Long
+Dim Vertex_LR As Long
+Dim PasteRange As Range
+Dim Source_Range As Range
+
+
+
+'Open Branch Mapping
+Filepath = "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\CO\CO Location Mapping.xlsx"
+
+Set Branch_ID_Data = Workbooks.Open(Filepath)
+Set Branch_IDs = Branch_ID_Data.Sheets(1)
+
+
+
+With Branch_IDs
+Branch_ID_HR = 1
+Branch_IDs_LR = WorksheetFunction.CountA(.Range("A:A"))
+Branch_ID_Generic_ID_Col = .Cells.Find("Generic_ID", lookat:=xlPart).Column
+Branch_ID_Tax_Return_Code_Col = .Cells.Find("Tax_Return_Code", lookat:=xlPart).Column
+
+
+Set Branch_IDs_Generic_ID = .Range(.Cells(Branch_ID_HR, Branch_ID_Generic_ID_Col), .Cells(Branch_IDs_LR, Branch_ID_Generic_ID_Col))
+Set Branch_IDs_Tax_Return_Code = .Range(.Cells(Branch_ID_HR, Branch_ID_Tax_Return_Code_Col), .Cells(Branch_IDs_LR, Branch_ID_Tax_Return_Code_Col))
+
+End With
+
+With Vertex
+
+Vertex_LC = WorksheetFunction.CountA(.Range("1:1"))
+Vertex_LR = WorksheetFunction.CountA(.Range("CP:CP"))
+Situs_City_Col = .Cells.Find("Jurisdiction Name").Column
+Situs_Tax_ID_Col = .Cells.Find("Situs Tax Area ID").Column
+Jurisdiction_Type_Col = .Cells.Find("Jurisdiction Type").Column
+
+
+Set Situs_Tax_ID = .Range(.Cells(2, Situs_Tax_ID_Col), .Cells(Vertex_LR, Situs_Tax_ID_Col))
+
+Set PasteRange = .Range(.Cells(3, Vertex_LC + 1), .Cells(Vertex_LR, Vertex_LC + 1))
+
+
+.Cells(1, Vertex_LC + 1).Value = "Colorado_Return_Location_ID"
+.Cells(1, Vertex_LC + 2).Value = "HomeRule Or State Admin"
+
+.Cells(2, Vertex_LC + 1).Value = "=XLOOKUP(" & .Cells(2, Situs_Tax_ID_Col).Address(RowAbsolute:=False, ColumnAbsolute:=False) & "," & Branch_IDs_Generic_ID.Address(External:=True) & _
+ "," & Branch_IDs_Tax_Return_Code.Address(External:=True) & _
+ "," & Chr(34) & Chr(34) & "," & "0)"
+ 
+ .Cells(2, Vertex_LC + 2).Value = "=IF(" & .Cells(2, Jurisdiction_Type_Col).Address(External:=True, RowAbsolute:=False, ColumnAbsolute:=False) & " <> " & Chr(34) & "CITY" & Chr(34) & ", " & Chr(34) & "STATE" & Chr(34) & ", " & "Determine_HomeRule_Status(" & .Cells(2, Situs_City_Col).Address(External:=True, RowAbsolute:=False, ColumnAbsolute:=False) & "))"
+
+
+Set Source_Range = .Cells(2, Vertex_LC + 1)
+
+' Copy the formula from the first cell
+Source_Range.Copy
+
+' Use PasteSpecial to paste the formula into the destination range
+PasteRange.PasteSpecial Paste:=xlPasteFormulas, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+    Application.CutCopyMode = False
+Set Source_Range = .Cells(2, Vertex_LC + 2)
+Set PasteRange = .Range(.Cells(3, Vertex_LC + 2), .Cells(Vertex_LR, Vertex_LC + 2))
+
+
+Source_Range.Copy
+PasteRange.PasteSpecial Paste:=xlPasteFormulas, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+End With
+
+
+
+
+
+
+End Sub
+
+Function Determine_HomeRule_Status(City As String) As String
+    ' Compare the state against the list of records and return the corresponding account key
+    
+    Select Case City
+        Case "arvada"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "aspen"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "aurora"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "avon"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "black hawk"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "boulder"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "breckenridge"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "brighton"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "broomfield"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "carbondale"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "castle pines"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "castle rock"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "centennial"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "central city"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "cherry hills village"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "colorado springs"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "commerce city"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "cortez"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "craig"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "crested butte"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "dacono"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "delta"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "denver"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "durango"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "edgewater"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "englewood"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "evans"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "federal heights"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "fort collins"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "frisco"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "city"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "glendale"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Glenwood Springs"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Golden"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Grand Junction"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Greeley"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Greenwood Village"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Gunnison"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Gypsum"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Lafayette"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "La Junta"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Lakewood"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Lamar"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Larkspur"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Littleton"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Lone Tree"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Longmont"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Louisville"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Loveland"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Montrose"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Mt. Crested Butte"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Mountain Village"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Northglenn"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Parker"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Pueblo"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Ridgway"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Rifle"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Sheridan"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Silverthorne"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Snowmass Village"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Steamboat Springs"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Sterling"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Telluride"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Thornton"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Timnath"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Vail"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Westminster"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Wheat Ridge"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Windsor"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Winter Park"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Woodland Park"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Arvada"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Aspen"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Aurora"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Avon"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Black Hawk"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Boulder"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Breckenridge"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Brighton"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Broomfield"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Carbondale"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Castle Pines"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Castle Rock"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Centennial"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Central City"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Cherry Hills Village"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Colorado Springs"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Commerce City"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Cortez"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Craig"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Crested Butte"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Dacono"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Delta"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Denver"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Durango"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Edgewater"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Englewood"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Evans"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Federal Heights"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Fort Collins"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Frisco"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "City"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Glendale"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Glenwood Springs"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Golden"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Grand Junction"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Greeley"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Greenwood Village"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Gunnison"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Gypsum"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Lafayette"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "La Junta"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Lakewood"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Lamar"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Larkspur"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Littleton"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Lone Tree"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Longmont"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Louisville"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Loveland"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Montrose"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Mt. Crested Butte"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Mountain Village"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Northglenn"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Parker"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Pueblo"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Ridgway"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Rifle"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Sheridan"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Silverthorne"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Snowmass Village"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Steamboat Springs"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Sterling"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Telluride"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Thornton"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Timnath"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Vail"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Westminster"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Wheat Ridge"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Windsor"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Winter Park"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "Woodland Park"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "ARVADA"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "ASPEN"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "AURORA"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "AVON"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "BLACK HAWK"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "BOULDER"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "BRECKENRIDGE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "BRIGHTON"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "BROOMFIELD"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "CARBONDALE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "CASTLE PINES"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "CASTLE ROCK"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "CENTENNIAL"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "CENTRAL CITY"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "CHERRY HILLS VILLAGE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "COLORADO SPRINGS"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "COMMERCE CITY"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "CORTEZ"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "CRAIG"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "CRESTED BUTTE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "DACONO"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "DELTA"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "DENVER"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "DURANGO"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "EDGEWATER"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "ENGLEWOOD"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "EVANS"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "FEDERAL HEIGHTS"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "FORT COLLINS"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "FRISCO"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "CITY"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "GLENDALE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "GLENWOOD SPRINGS"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "GOLDEN"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "GRAND JUNCTION"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "GREELEY"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "GREENWOOD VILLAGE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "GUNNISON"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "GYPSUM"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "LAFAYETTE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "LA JUNTA"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "LAKEWOOD"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "LAMAR"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "LARKSPUR"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "LITTLETON"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "LONE TREE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "LONGMONT"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "LOUISVILLE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "LOVELAND"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "MONTROSE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "MT. CRESTED BUTTE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "MOUNTAIN VILLAGE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "NORTHGLENN"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "PARKER"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "PUEBLO"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "RIDGWAY"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "RIFLE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "SHERIDAN"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "SILVERTHORNE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "SNOWMASS VILLAGE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "STEAMBOAT SPRINGS"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "STERLING"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "TELLURIDE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "THORNTON"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "TIMNATH"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "VAIL"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "WESTMINSTER"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "WHEAT RIDGE"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "WINDSOR"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "WINTER PARK"
+             Determine_HomeRule_Status = "HomeRule"
+        Case "WOODLAND PARK"
+             Determine_HomeRule_Status = "HomeRule"
+        Case Else
+             Determine_HomeRule_Status = "State"
+    End Select
+    
+    End Sub
+    
+Sub Create_Table(tableName As String, sheetName As String)
+
+    Dim ws As Worksheet
+    Dim tbl As ListObject
+    Dim usedRng As Range
+    
+    ' Error handling to avoid issues if sheet name is not found
+    On Error Resume Next
+    Set ws = ActiveWorkbook.Sheets(sheetName)
+    On Error GoTo 0
+    
+    ' Exit if the specified sheet does not exist
+    If ws Is Nothing Then
+        MsgBox "Sheet '" & sheetName & "' not found.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Determine the used range on the specified sheet
+    Set usedRng = ws.UsedRange
+    
+    ' Check if there's already a table with the given name
+    On Error Resume Next
+    Set tbl = ws.ListObjects(tableName)
+    On Error GoTo 0
+    
+    ' If a table with the given name already exists, prompt to exit
+    If Not tbl Is Nothing Then
+        MsgBox "A table with the name '" & tableName & "' already exists.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Create the table from the used range
+    Set tbl = ws.ListObjects.Add(xlSrcRange, usedRng, , xlYes)
+    tbl.Name = tableName
+ 
+End Sub
