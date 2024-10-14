@@ -1,0 +1,51 @@
+Sub Update_Config()
+    Dim ConfigFile As String
+    Dim ArchiveFolder As String
+    Dim ArchiveFile As String
+    Dim fs As Object
+    Dim f As Object
+    Dim FileDateCreated As Date
+    Dim NewConfig As Workbook
+    Dim NewConfigDir As String
+    
+    ' Set the paths for the ConfigReport file and the Archive folder
+    ConfigFile = "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\Settings\ConfigReport.xlsx"
+    ArchiveFolder = "C:\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Tax Jursidictions\Settings\Archive\"
+    
+    ' Create a FileSystemObject
+    Set fs = CreateObject("Scripting.FileSystemObject")
+    
+    ' Check if the ConfigReport file exists
+    If fs.FileExists(ConfigFile) Then
+        ' Get the file object and its creation date
+        Set f = fs.GetFile(ConfigFile)
+        FileDateCreated = f.DateCreated
+        
+        ' Construct the new name for archiving based on the creation date
+        ArchiveFile = ArchiveFolder & "ConfigReport_Created_" & Format(FileDateCreated, "yyyy-mm-dd") & ".xlsx"
+        
+        ' Move the ConfigReport file to the Archive folder with the new name
+        On Error Resume Next
+        fs.MoveFile ConfigFile, ArchiveFile
+        On Error GoTo 0
+        
+        ' Check if the file was successfully moved to the Archive folder
+        If fs.FileExists(ArchiveFile) Then
+            ' Save the active workbook (current configuration) as ConfigReport.xlsx in the original directory
+            Set NewConfig = ActiveWorkbook
+            NewConfigDir = NewConfig.FullName
+            NewConfig.SaveAs ConfigFile, FileFormat:=xlWorkbookDefault
+            NewConfig.Close
+            
+            ' Delete the previous copy of the ConfigReport file
+            If fs.FileExists(NewConfigDir) Then
+                fs.DeleteFile NewConfigDir
+            End If
+        Else
+            MsgBox "Error moving file to the archive folder."
+        End If
+    Else
+        MsgBox "ConfigReport.xlsx file not found."
+    End If
+End Sub
+
