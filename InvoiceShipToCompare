@@ -100,7 +100,7 @@ Call CreateWrikeUploadSheet
 End Sub
 
 
-Function StateToAbbrev(state As String) As String
+Function StateToAbbrev(State As String) As String
     Dim dict As Object
     Set dict = CreateObject("Scripting.Dictionary")
     dict.Add "ALABAMA", "AL"
@@ -159,9 +159,9 @@ Function StateToAbbrev(state As String) As String
     dict.Add "DISTRICT OF COLUMBIA", "DC"
     dict.Add "PUERTO RICO", "PR"
     
-    state = UCase(state)
-    If dict.Exists(state) Then
-        StateToAbbrev = dict(state)
+    State = UCase(State)
+    If dict.Exists(State) Then
+        StateToAbbrev = dict(State)
     Else
         StateToAbbrev = "Invalid state name."
     End If
@@ -180,13 +180,13 @@ Public Sub E_FN_Import_Sage_Data()
 
 End Sub
 Private Sub LoadData()
-    Dim Conn As New ADODB.Connection
-    Dim Recset As ADODB.RecordSet
+    Dim conn As New ADODB.connection
+    Dim Recset As ADODB.Recordset
     Dim i As Long
 
-    Conn.Open ConString
-    Set Recset = New ADODB.RecordSet
-    Recset.Open SQL, Conn
+    conn.Open ConString
+    Set Recset = New ADODB.Recordset
+    Recset.Open SQL, conn
     Sage.Cells(2, 1).CopyFromRecordset Recset
 
     With Recset
@@ -195,7 +195,7 @@ Private Sub LoadData()
         Next i
     End With
     Recset.Close
-    Conn.Close
+    conn.Close
     Sage.Columns.AutoFit
 
     FormatColumns
@@ -259,15 +259,15 @@ UserQuerry = MsgBox("Use Quanda data source?", vbYesNo)
 End Sub
 
 Private Sub LoadData_StateCheck()
-    Dim Conn As New ADODB.Connection
-    Dim Recset As ADODB.RecordSet
+    Dim conn As New ADODB.connection
+    Dim Recset As ADODB.Recordset
     Dim i As Long
     
     Set Sage = Sheets.Add
     
-    Conn.Open ConString
-    Set Recset = New ADODB.RecordSet
-    Recset.Open SQL, Conn
+    conn.Open ConString
+    Set Recset = New ADODB.Recordset
+    Recset.Open SQL, conn
     Sage.Cells(2, 1).CopyFromRecordset Recset
 
     With Recset
@@ -276,7 +276,7 @@ Private Sub LoadData_StateCheck()
         Next i
     End With
     Recset.Close
-    Conn.Close
+    conn.Close
     Sage.Columns.AutoFit
 
     FormatColumns_SC
@@ -305,18 +305,18 @@ End Function
 Sub ExtractErrors()
     Dim SageSheet As Worksheet
     Dim ErrorSheet As Worksheet
-    Dim LastRow As Long
+    Dim lastRow As Long
     Dim i As Long
-    Dim invoiceNo As String
+    Dim InvoiceNo As String
     Dim ShipToState As String
-    Dim taxSchedule As String
-    Dim ShipToStateCol As Long
-    Dim TaxScheduleCol As Long
+    Dim TaxSchedule As String
+    Dim shipToStateCol As Long
+    Dim taxScheduleCol As Long
     Dim InvoiceCol As Long
     Dim ShipToMatchCol As Long
     Dim errorRange As Range
     Dim rowRange As Range
-    Dim SalespersonNo As String
+    Dim SalesPersonNo As String
     Dim SalespersonNoCol As Long
     
     
@@ -327,37 +327,37 @@ Sub ExtractErrors()
     Set SageSheet = ActiveWorkbook.Worksheets("Sage")
     
     With SageSheet
-        TaxScheduleCol = .Rows(1).Find("TaxSchedule", LookIn:=xlValues, LookAt:=xlWhole).Column
-        ShipToStateCol = .Rows(1).Find("ShipToState", LookIn:=xlValues, LookAt:=xlWhole).Column
-        InvoiceCol = .Rows(1).Find("InvoiceNo", LookIn:=xlValues, LookAt:=xlWhole).Column
-        ShipToMatchCol = .Rows(1).Find("ShipToMatch", LookIn:=xlValues, LookAt:=xlWhole).Column
-        SalespersonNoCol = Rows(1).Find("SalespersonNo", LookIn:=xlValues, LookAt:=xlWhole).Column
+        taxScheduleCol = .Rows(1).Find("TaxSchedule", LookIn:=xlValues, lookat:=xlWhole).Column
+        shipToStateCol = .Rows(1).Find("ShipToState", LookIn:=xlValues, lookat:=xlWhole).Column
+        InvoiceCol = .Rows(1).Find("InvoiceNo", LookIn:=xlValues, lookat:=xlWhole).Column
+        ShipToMatchCol = .Rows(1).Find("ShipToMatch", LookIn:=xlValues, lookat:=xlWhole).Column
+        SalespersonNoCol = Rows(1).Find("SalespersonNo", LookIn:=xlValues, lookat:=xlWhole).Column
     End With
     
     Set ErrorSheet = ActiveWorkbook.Sheets.Add
     ErrorSheet.Name = "Error Report"
     
     'Get the last row of data in the Sage sheet
-    LastRow = SageSheet.Cells(SageSheet.Rows.Count, 1).End(xlUp).row
+    lastRow = SageSheet.Cells(SageSheet.Rows.Count, 1).End(xlUp).row
     
     'Copy column headers to error sheet
     SageSheet.Rows(1).Copy Destination:=ErrorSheet.Rows(1)
     
     'Loop through each row in the Sage sheet and check the conditions
-    For i = 2 To LastRow 'assuming row 1 contains headers
-    invoiceNo = SageSheet.Cells(i, InvoiceCol).Value
-    ShipToState = SageSheet.Cells(i, ShipToStateCol).Value
-    taxSchedule = SageSheet.Cells(i, TaxScheduleCol).Value
-    SalespersonNo = SageSheet.Cells(i, SalespersonNoCol).Value
+    For i = 2 To lastRow 'assuming row 1 contains headers
+    InvoiceNo = SageSheet.Cells(i, InvoiceCol).Value
+    ShipToState = SageSheet.Cells(i, shipToStateCol).Value
+    TaxSchedule = SageSheet.Cells(i, taxScheduleCol).Value
+    SalesPersonNo = SageSheet.Cells(i, SalespersonNoCol).Value
     
     'Check if invoice number starts with a letter
-    If Not IsNumeric(Left(invoiceNo, 1)) Then
+    If Not IsNumeric(Left(InvoiceNo, 1)) Then
         'Skip this row
         GoTo NextRow
     End If
     
     'Check if SalespersonNo is "COOP"
-    If SalespersonNo = "COOP" Then
+    If SalesPersonNo = "COOP" Then
         'Skip this row
         GoTo NextRow
     End If
@@ -365,13 +365,13 @@ Sub ExtractErrors()
     'Check if ShipToMatch is false
     If SageSheet.Cells(i, SageSheet.Cells.Find("ShipToMatch").Column).Value = False Then
         'Check if ShipToState is FL and tax schedule is MKTPLCFAC
-        If ShipToState = "FL" And taxSchedule = "MKTPLCFAC" Then
+        If ShipToState = "FL" And TaxSchedule = "MKTPLCFAC" Then
             'Skip this row
             GoTo NextRow
-        ElseIf ShipToState <> "FL" And taxSchedule = "MKTPLCFAC" Then
+        ElseIf ShipToState <> "FL" And TaxSchedule = "MKTPLCFAC" Then
             'Copy the row to the Error sheet
             Set errorRange = getErrorRange(errorRange, SageSheet.Rows(i))
-        ElseIf ShipToState = "FL" And taxSchedule <> "MKTPLCFAC" Then
+        ElseIf ShipToState = "FL" And TaxSchedule <> "MKTPLCFAC" Then
             'Copy the row to the Error sheet
             Set errorRange = getErrorRange(errorRange, SageSheet.Rows(i))
         Else
@@ -439,12 +439,12 @@ End Sub
 
 Sub CreateWrikeUploadSheet()
     ' Define variables
-    Dim uploadSheet As Worksheet
+    Dim UploadSheet As Worksheet
     Dim errorReportSheet As Worksheet
-    Dim LastRow As Long
+    Dim lastRow As Long
     Dim i As Long
     Dim title As String
-    Dim invoiceNo As String
+    Dim InvoiceNo As String
     Dim vertexShipTo As String
     Dim ShipToState As String
     Dim parentTask As String
@@ -455,63 +455,63 @@ Sub CreateWrikeUploadSheet()
     
     ' Create Wrike Upload sheet if it does not exist
     On Error Resume Next
-    Set uploadSheet = ActiveWorkbook.Sheets("Wrike Upload")
+    Set UploadSheet = ActiveWorkbook.Sheets("Wrike Upload")
     On Error GoTo 0
     
-    If uploadSheet Is Nothing Then
-        Set uploadSheet = ActiveWorkbook.Sheets.Add(after:=errorReportSheet)
-        uploadSheet.Name = "Wrike Upload"
+    If UploadSheet Is Nothing Then
+        Set UploadSheet = ActiveWorkbook.Sheets.Add(after:=errorReportSheet)
+        UploadSheet.Name = "Wrike Upload"
     End If
     
     ' Clear existing data in upload sheet
-    uploadSheet.Cells.ClearContents
+    UploadSheet.Cells.ClearContents
     
     ' Add headers to upload sheet
-    uploadSheet.Range("A1:T1").Value = Array("Key", "Folder", "Parent Task", "Default Task workflow", _
+    UploadSheet.Range("A1:T1").Value = Array("Key", "Folder", "Parent Task", "Default Task workflow", _
         "Default project workflow", "Title", "Workflow", "Status", "Custom status", "Priority", _
         "Assigned To", "Start Date", "Duration", "Duration (Hours)", "Effort", "Time Spent (Hours)", _
         "End Date", "Depends On", "Start Date Constraint", "Description")
     
     ' Get last row of data in error report sheet
-    LastRow = errorReportSheet.Cells(Rows.Count, "A").End(xlUp).row
+    lastRow = errorReportSheet.Cells(Rows.Count, "A").End(xlUp).row
     
     ' Loop through each row of data in error report sheet
-    For i = 2 To LastRow
+    For i = 2 To lastRow
         ' Get values from error report sheet
-        invoiceNo = errorReportSheet.Range("A" & i).Value
+        InvoiceNo = errorReportSheet.Range("A" & i).Value
         vertexShipTo = errorReportSheet.Range("M" & i).Value
         ShipToState = errorReportSheet.Range("N" & i).Value
-        zipCode = errorReportSheet.Range("O" & i).Value
+        zipcode = errorReportSheet.Range("O" & i).Value
         
         ' Create title string
         title = "[" & Format(errorReportSheet.Range("B" & i).Value, "yyyy-mm") & " Tax Project ] " & _
-            "Correct Invoice " & invoiceNo & " ShipToState to be " & vertexShipTo & _
+            "Correct Invoice " & InvoiceNo & " ShipToState to be " & vertexShipTo & _
             " From " & ShipToState
         
         ' Create parent task string using getStateTitle function
         parentTask = "[" & Format(errorReportSheet.Range("B" & i).Value, "yyyy-mm") & " Tax Project ] " & getStateTitle(vertexShipTo)
         
         ' Create description string
-        description = "The ShipToState for the Zipcode " & zipCode & " for the invoice " & invoiceNo & _
+        description = "The ShipToState for the Zipcode " & zipcode & " for the invoice " & InvoiceNo & _
             " is different than what is in Sage. Sage needs to be corrected for this data validation error."
                 
         ' Add data to upload sheet
-        uploadSheet.Cells(i, 1).Value = i - 1 ' Key
-        uploadSheet.Cells(i, 6).Value = title ' Title
-        uploadSheet.Cells(i, 7).Value = "Default Workflow" ' Workflow
-        uploadSheet.Cells(i, 8).Value = "Active" ' Status
-        uploadSheet.Cells(i, 9).Value = "Assigned" ' Custom status
-        uploadSheet.Cells(i, 10).Value = "Normal" ' Priority
-        uploadSheet.Cells(i, 11).Value = "Paul Ray <paul@fotronic.com>" ' Assigned To
-        uploadSheet.Cells(i, 3).Value = parentTask ' Parent Task
-        uploadSheet.Cells(i, 20).Value = description
+        UploadSheet.Cells(i, 1).Value = i - 1 ' Key
+        UploadSheet.Cells(i, 6).Value = title ' Title
+        UploadSheet.Cells(i, 7).Value = "Default Workflow" ' Workflow
+        UploadSheet.Cells(i, 8).Value = "Active" ' Status
+        UploadSheet.Cells(i, 9).Value = "Assigned" ' Custom status
+        UploadSheet.Cells(i, 10).Value = "Normal" ' Priority
+        UploadSheet.Cells(i, 11).Value = "Paul Ray <paul@fotronic.com>" ' Assigned To
+        UploadSheet.Cells(i, 3).Value = parentTask ' Parent Task
+        UploadSheet.Cells(i, 20).Value = description
    Next i
     
     ' Autofit columns in upload sheet
-    uploadSheet.Cells.EntireColumn.AutoFit
+    UploadSheet.Cells.EntireColumn.AutoFit
 End Sub
 
-Function getStateTitle(stateAbbreviation As String) As String
+Function getStateTitle(StateAbbreviation As String) As String
     Dim stateTitles As Object
     Set stateTitles = CreateObject("Scripting.Dictionary")
     
@@ -556,8 +556,8 @@ Function getStateTitle(stateAbbreviation As String) As String
     stateTitles.Add "WI", "WI State/County Sales/Use Tax ST-12"
     
     'Check if state abbreviation exists in dictionary
-    If stateTitles.Exists(stateAbbreviation) Then
-        getStateTitle = stateAbbreviation & " - " & stateTitles(stateAbbreviation)
+    If stateTitles.Exists(StateAbbreviation) Then
+        getStateTitle = StateAbbreviation & " - " & stateTitles(StateAbbreviation)
     Else
         getStateTitle = "Address Validation Errors"
     End If
