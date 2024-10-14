@@ -1,45 +1,1220 @@
+Sub Vertex_Adjustment()
 
-Sub Data_Querry()
+Dim InvoiceNo As String
+Dim conn As New ADODB.connection
+Dim Recset As New ADODB.Recordset
+Dim i As Long
 
-
-GL_Acct_Query.Show
-
-
-End Sub
-Sub Sales_Query()
-
-
-SubLedger_Inquiry.Show
+Dim RawData As Worksheet
+Dim UploadSheet As Worksheet
+Dim CorrectionState As String
 
 
-End Sub
-Sub File_Directory_Open()
 
-Dim FileStringLen As Integer
-Dim String_1 As String
-Dim String_2 As String
-Dim FileDir As String
-Dim Last_Occurance As Long
-Dim Test_Var As String
-Dim OpenDir As String
 
-FileStringLen = Len(ActiveWorkbook.FullName)
-String_1 = ActiveWorkbook.FullName
-String_2 = "\"
+' Create sheet for Upload:
+Set UploadSheet = ActiveWorkbook.Sheets.Add
+UploadSheet.Name = "Upload"
 
-For i = FileStringLen To 1 Step -1
-Test_Var = Mid(String_1, i - 1, 1)
-If Mid(String_1, i - 1, 1) = String_2 Then
+'Write UploadSheet Headers
+UploadSheet.Cells(1, 1).Value = "Results"
+UploadSheet.Cells(1, 2).Value = "Document Number"
+UploadSheet.Cells(1, 3).Value = "Document Date"
+UploadSheet.Cells(1, 4).Value = "Posting Date"
+UploadSheet.Cells(1, 5).Value = "Location Code"
+UploadSheet.Cells(1, 6).Value = "Company Code"
+UploadSheet.Cells(1, 7).Value = "Phys Origin TAID"
+UploadSheet.Cells(1, 8).Value = "Phys Origin Street Address"
+UploadSheet.Cells(1, 9).Value = "Phys Origin City"
+UploadSheet.Cells(1, 10).Value = "Phys Origin State"
+UploadSheet.Cells(1, 11).Value = "Phys Origin Zip"
+UploadSheet.Cells(1, 12).Value = "Phys Origin Country"
+UploadSheet.Cells(1, 13).Value = "Customer Code"
+UploadSheet.Cells(1, 14).Value = "Customer Class Code"
+UploadSheet.Cells(1, 15).Value = "Certificate Number"
+UploadSheet.Cells(1, 16).Value = "Shipping Term"
+UploadSheet.Cells(1, 17).Value = "Destination TAID"
+UploadSheet.Cells(1, 18).Value = "Destination Street Address"
+UploadSheet.Cells(1, 19).Value = "Destination City"
+UploadSheet.Cells(1, 20).Value = "Destination State"
+UploadSheet.Cells(1, 21).Value = "Destination Zip"
+UploadSheet.Cells(1, 22).Value = "Destination Country"
+UploadSheet.Cells(1, 23).Value = "Line Item Number"
+UploadSheet.Cells(1, 24).Value = "Product Code"
+UploadSheet.Cells(1, 25).Value = "Product Class Code"
+UploadSheet.Cells(1, 26).Value = "Quantity"
+UploadSheet.Cells(1, 27).Value = "Unit Price"
+UploadSheet.Cells(1, 28).Value = "Extended Price"
+UploadSheet.Cells(1, 29).Value = "Discount Code"
+UploadSheet.Cells(1, 30).Value = "Discount Amount"
+UploadSheet.Cells(1, 31).Value = "Discount Percentage"
+UploadSheet.Cells(1, 32).Value = "FlexCode01"
+UploadSheet.Cells(1, 33).Value = "FlexCode02"
+UploadSheet.Cells(1, 34).Value = "FlexCode03"
+UploadSheet.Cells(1, 35).Value = "FlexCode04"
+UploadSheet.Cells(1, 36).Value = "FlexCode05"
+UploadSheet.Cells(1, 37).Value = "FlexCode06"
+UploadSheet.Cells(1, 38).Value = "FlexCode07"
+UploadSheet.Cells(1, 39).Value = "FlexCode08"
+UploadSheet.Cells(1, 40).Value = "FlexCode09"
+UploadSheet.Cells(1, 41).Value = "FlexCode10"
+UploadSheet.Cells(1, 42).Value = "FlexCode11"
+UploadSheet.Cells(1, 43).Value = "FlexCode12"
+UploadSheet.Cells(1, 44).Value = "FlexCode13"
+UploadSheet.Cells(1, 45).Value = "FlexCode14"
+UploadSheet.Cells(1, 46).Value = "FlexCode15"
+UploadSheet.Cells(1, 47).Value = "FlexCode16"
+UploadSheet.Cells(1, 48).Value = "FlexCode17"
+UploadSheet.Cells(1, 49).Value = "FlexCode18"
+UploadSheet.Cells(1, 50).Value = "FlexCode19"
+UploadSheet.Cells(1, 51).Value = "FlexCode20"
+UploadSheet.Cells(1, 52).Value = "FlexCode21"
+UploadSheet.Cells(1, 53).Value = "FlexCode22"
+UploadSheet.Cells(1, 54).Value = "FlexCode23"
+UploadSheet.Cells(1, 55).Value = "FlexCode24"
+UploadSheet.Cells(1, 56).Value = "FlexCode25"
+UploadSheet.Cells(1, 57).Value = "FlexNum1"
+UploadSheet.Cells(1, 58).Value = "FlexNum2"
+UploadSheet.Cells(1, 59).Value = "FlexNum3"
+UploadSheet.Cells(1, 60).Value = "FlexNum4"
+UploadSheet.Cells(1, 61).Value = "FlexNum5"
+UploadSheet.Cells(1, 62).Value = "FlexNum6"
+UploadSheet.Cells(1, 63).Value = "FlexNum7"
+UploadSheet.Cells(1, 64).Value = "FlexNum8"
+UploadSheet.Cells(1, 65).Value = "FlexNum9"
+UploadSheet.Cells(1, 66).Value = "FlexNum10"
+UploadSheet.Cells(1, 67).Value = "FlexDate1"
+UploadSheet.Cells(1, 68).Value = "FlexDate2"
+UploadSheet.Cells(1, 69).Value = "FlexDate3"
+UploadSheet.Cells(1, 70).Value = "FlexDate4"
+UploadSheet.Cells(1, 71).Value = "FlexDate5"
+UploadSheet.Cells(1, 72).Value = "Total Tax Amount"
+UploadSheet.Cells(1, 73).Value = "Reserved1"
+UploadSheet.Cells(1, 74).Value = "State Tax"
+UploadSheet.Cells(1, 75).Value = "County Tax"
+UploadSheet.Cells(1, 76).Value = "City Tax"
+UploadSheet.Cells(1, 77).Value = "Other Taxes"
+UploadSheet.Cells(1, 78).Value = "GST/HST Tax"
+UploadSheet.Cells(1, 79).Value = "PST Tax"
+UploadSheet.Cells(1, 80).Value = "Notes"
 
-Last_Occurance = i
 
-Exit For
-Else
-End If
+'Create ERP Data Download Sheet
+Set RawData = ActiveWorkbook.Sheets.Add
+RawData.Name = "RawData"
+
+InvoiceNo = InputBox("What Invoice to Adjust Vertex for?")
+
+ConString = "DSN=Quanda;Description=Daily Replication of Sage data in SQL;Trusted_Connection=Yes;APP=Microsoft Office;DATABASE=Quanda;ApplicationIntent=READONLY;"
+SQL = "SELECT AR_InvoiceHistoryHeader.*, " & _
+      "ISNULL(AR_InvoiceHistoryHeader.ShipToAddress1, '') + ' ' + ISNULL(AR_InvoiceHistoryHeader.ShipToAddress2, '') + ' ' + ISNULL(AR_InvoiceHistoryHeader.ShipToAddress3, '') AS CombinedAddress, " & _
+      "AR_InvoiceHistoryDetail.ItemCode, AR_InvoiceHistoryDetail.ExtensionAmt, AR_InvoiceHistoryDetail.TaxClass, AR_InvoiceHistoryDetail.QuantityShipped, AR_InvoiceHistoryDetail.UnitPrice " & _
+      "FROM AR_InvoiceHistoryHeader, AR_InvoiceHistoryDetail " & _
+      "WHERE AR_InvoiceHistoryHeader.InvoiceNo = AR_InvoiceHistoryDetail.InvoiceNo " & _
+      "AND AR_InvoiceHistoryHeader.HeaderSeqNo = AR_InvoiceHistoryDetail.HeaderSeqNo " & _
+      "AND AR_InvoiceHistoryHeader.InvoiceNo = '" & InvoiceNo & "'"
+
+conn.Open ConString
+Set Recset = New ADODB.Recordset
+Recset.Open SQL, conn
+    
+' Download the Invoice Data for upload Population
+With Recset
+    If Not .EOF Then
+        ' Put field names into the first row of worksheet
+        For i = 1 To .Fields.Count
+            RawData.Cells(1, i).Value = .Fields(i - 1).Name
+        Next i
+        
+        ' Move to first record
+        .MoveFirst
+        
+        ' Copy the data to Excel
+        RawData.Cells(2, 1).CopyFromRecordset Recset
+    End If
+
+End With
+
+Dim CorrectionDate As String
+
+Dim Sage_InvoiceNo As Range
+Dim Sage_HeaderSeqNo As Range
+Dim Sage_ModuleCode As Range
+Dim Sage_InvoiceType As Range
+Dim Sage_InvoiceDate As Range
+Dim Sage_TransactionDate As Range
+Dim Sage_ARDivisionNo As Range
+Dim Sage_CustomerNo As Range
+Dim Sage_TermsCode As Range
+Dim Sage_TaxSchedule As Range
+Dim Sage_TaxExemptNo As Range
+Dim Sage_SalespersonDivisionNo As Range
+Dim Sage_SalespersonNo As Range
+Dim Sage_CustomerPONo As Range
+Dim Sage_ApplyToInvoiceNo As Range
+Dim Sage_Comment As Range
+Dim Sage_RepetitiveInvoiceRefNo As Range
+Dim Sage_JobNo As Range
+Dim Sage_InvoiceDueDate As Range
+Dim Sage_DiscountDueDate As Range
+Dim Sage_SourceJournal As Range
+Dim Sage_JournalNoGLBatchNo As Range
+Dim Sage_BatchFax As Range
+Dim Sage_FaxNo As Range
+Dim Sage_ShippingInvoice As Range
+Dim Sage_SalesOrderNo As Range
+Dim Sage_OrderType As Range
+Dim Sage_OrderDate As Range
+Dim Sage_BillToName As Range
+Dim Sage_BillToAddress1 As Range
+Dim Sage_BillToAddress2 As Range
+Dim Sage_BillToAddress3 As Range
+Dim Sage_BillToCity As Range
+Dim Sage_BillToState As Range
+Dim Sage_BillToZipCode As Range
+Dim Sage_BillToCountryCode As Range
+Dim Sage_ShipToCode As Range
+Dim Sage_ShipToName As Range
+Dim Sage_ShipToAddress1 As Range
+Dim Sage_ShipToAddress2 As Range
+Dim Sage_ShipToAddress3 As Range
+Dim Sage_ShipToCity As Range
+Dim Sage_ShipToState As Range
+Dim Sage_ShipToZipCode As Range
+Dim Sage_ShipToCountryCode As Range
+Dim Sage_ShipDate As Range
+Dim Sage_ShipVia As Range
+Dim Sage_ShipZone As Range
+Dim Sage_FOB As Range
+Dim Sage_ConfirmTo As Range
+Dim Sage_CheckNoForDeposit As Range
+Dim Sage_SplitCommissions As Range
+Dim Sage_SalespersonDivisionNo2 As Range
+Dim Sage_SalespersonNo2 As Range
+Dim Sage_SalespersonDivisionNo3 As Range
+Dim Sage_SalespersonNo3 As Range
+Dim Sage_SalespersonDivisionNo4 As Range
+Dim Sage_SalespersonNo4 As Range
+Dim Sage_SalespersonDivisionNo5 As Range
+Dim Sage_SalespersonNo5 As Range
+Dim Sage_PaymentType As Range
+Dim Sage_PaymentTypeCategory As Range
+Dim Sage_OtherPaymentTypeRefNo As Range
+Dim Sage_RMANo As Range
+Dim Sage_EBMSubmissionType As Range
+Dim Sage_EBMUserIDSubmittingThisOrder As Range
+Dim Sage_EBMUserType As Range
+Dim Sage_ShipperID As Range
+Dim Sage_UserKey As Range
+Dim Sage_WarehouseCode As Range
+Dim Sage_ShipWeight As Range
+Dim Sage_ResidentialAddress As Range
+Dim Sage_EmailAddress As Range
+Dim Sage_TaxableSalesAmt As Range
+Dim Sage_NonTaxableSalesAmt As Range
+Dim Sage_FreightAmt As Range
+Dim Sage_SalesTaxAmt As Range
+Dim Sage_CostOfSalesAmt As Range
+Dim Sage_AmountSubjectToDiscount As Range
+Dim Sage_DiscountRate As Range
+Dim Sage_DiscountAmt As Range
+Dim Sage_SalesSubjectToComm As Range
+Dim Sage_CostSubjectToComm As Range
+Dim Sage_CommissionRate As Range
+Dim Sage_CommissionAmt As Range
+Dim Sage_SplitCommRate2 As Range
+Dim Sage_SplitCommRate3 As Range
+Dim Sage_SplitCommRate4 As Range
+Dim Sage_SplitCommRate5 As Range
+Dim Sage_DepositAmt As Range
+Dim Sage_Weight As Range
+Dim Sage_RetentionAmt As Range
+Dim Sage_NumberOfPackages As Range
+Dim Sage_DateUpdated As Range
+Dim Sage_TimeUpdated As Range
+Dim Sage_UserUpdatedKey As Range
+Dim Sage_UDF_TEST As Range
+Dim Sage_UDF_AMAZON_ID As Range
+Dim Sage_CRMUserID As Range
+Dim Sage_CRMCompanyID As Range
+Dim Sage_CRMPersonID As Range
+Dim Sage_CRMOpportunityID As Range
+Dim Sage_UDF_ORDER_MANAGER As Range
+Dim Sage_UDF_INVEMAIL As Range
+Dim Sage_UDF_PAYPAL_ID As Range
+Dim Sage_BillToDivisionNo As Range
+Dim Sage_BillToCustomerNo As Range
+Dim Sage_UDF_SO_NOTES As Range
+Dim Sage_UDF_RMA_SPECIAL_INSTRUCTIONS As Range
+Dim Sage_UDF_RMA_RESTOCKING_FEE As Range
+Dim Sage_DateCreated As Range
+Dim Sage_TimeCreated As Range
+Dim Sage_UserCreatedKey As Range
+Dim Sage_UDF_OSC_ID As Range
+Dim Sage_UDF_COMMENTS As Range
+Dim Sage_UDF_SHIPACCT As Range
+Dim Sage_UDF_SO_BILL_ATTN As Range
+Dim Sage_UDF_SO_INCOTERMS As Range
+Dim Sage_UDF_SO_SHIP_ATTN As Range
+Dim Sage_AR551ELK_UserID As Range
+Dim Sage_AR551ELK_WebOrderNo As Range
+Dim Sage_UDF_MKTPLC_SALES_TAX As Range
+Dim Sage_MultipleSalesOrdersApplied As Range
+Dim Sage_MultipleCustomerPONos As Range
+Dim Sage_MultipleDepositsApplied As Range
+Dim Sage_EInvoiceId As Range
+Dim Sage_EncryptedVals As Range
+Dim Sage_UDF_MKTPLC_SALES_TAX_STR As Range
+Dim Sage_UDF_DROP_SHIP As Range
+Dim Sage_UDF_INSURANCE As Range
+Dim Sage_UDF_NO_INSURANCE As Range
+Dim Sage_UDF_SIGN_REQD As Range
+Dim Sage_UDF_TELEPHONE As Range
+Dim Sage_UDF_SIGNIFYD_CODE As Range
+Dim Sage_UDF_SIGNIFYD_SCORE As Range
+Dim Sage_UDF_INSUREAMT As Range
+Dim Sage_UDF_SO_SHIP_BILL_TYPE As Range
+Dim Sage_UDF_SATURDAY_DELIVERY As Range
+Dim Sage_CombinedAddress As Range
+Dim Sage_ItemCode As Range
+Dim Sage_ExtensionAmt As Range
+Dim Sage_TaxClass As Range
+Dim Sage_QuantityShipped As Range
+Dim Sage_UnitPrice As Range
+
+
+Dim Results_Range As Range
+Dim Document_Number_Range As Range
+Dim Document_Date_Range As Range
+Dim Posting_Date_Range As Range
+Dim Location_Code_Range As Range
+Dim Company_Code_Range As Range
+Dim Phys_Origin_TAID_Range As Range
+Dim Phys_Origin_Street_Address_Range As Range
+Dim Phys_Origin_City_Range As Range
+Dim Phys_Origin_State_Range As Range
+Dim Phys_Origin_Zip_Range As Range
+Dim Phys_Origin_Country_Range As Range
+Dim Customer_Code_Range As Range
+Dim Customer_Class_Code_Range As Range
+Dim Certificate_Number_Range As Range
+Dim Shipping_Term_Range As Range
+Dim Destination_TAID_Range As Range
+Dim Destination_Street_Address_Range As Range
+Dim Destination_City_Range As Range
+Dim Destination_State_Range As Range
+Dim Destination_Zip_Range As Range
+Dim Destination_Country_Range As Range
+Dim Line_Item_Number_Range As Range
+Dim Product_Code_Range As Range
+Dim Product_Class_Code_Range As Range
+Dim Quantity_Range As Range
+Dim Unit_Price_Range As Range
+Dim Extended_Price_Range As Range
+Dim Discount_Code_Range As Range
+Dim Discount_Amount_Range As Range
+Dim Discount_Percentage_Range As Range
+Dim FlexCode01_Range As Range
+Dim FlexCode02_Range As Range
+Dim FlexCode03_Range As Range
+Dim FlexCode04_Range As Range
+Dim FlexCode05_Range As Range
+Dim FlexCode06_Range As Range
+Dim FlexCode07_Range As Range
+Dim FlexCode08_Range As Range
+Dim FlexCode09_Range As Range
+Dim FlexCode10_Range As Range
+Dim FlexCode11_Range As Range
+Dim FlexCode12_Range As Range
+Dim FlexCode13_Range As Range
+Dim FlexCode14_Range As Range
+Dim FlexCode15_Range As Range
+Dim FlexCode16_Range As Range
+Dim FlexCode17_Range As Range
+Dim FlexCode18_Range As Range
+Dim FlexCode19_Range As Range
+Dim FlexCode20_Range As Range
+Dim FlexCode21_Range As Range
+Dim FlexCode22_Range As Range
+Dim FlexCode23_Range As Range
+Dim FlexCode24_Range As Range
+Dim FlexCode25_Range As Range
+Dim FlexNum1_Range As Range
+Dim FlexNum2_Range As Range
+Dim FlexNum3_Range As Range
+Dim FlexNum4_Range As Range
+Dim FlexNum5_Range As Range
+Dim FlexNum6_Range As Range
+Dim FlexNum7_Range As Range
+Dim FlexNum8_Range As Range
+Dim FlexNum9_Range As Range
+Dim FlexNum10_Range As Range
+Dim FlexDate1_Range As Range
+Dim FlexDate2_Range As Range
+Dim FlexDate3_Range As Range
+Dim FlexDate4_Range As Range
+Dim FlexDate5_Range As Range
+Dim Total_Tax_Amount_Range As Range
+Dim Reserved1_Range As Range
+Dim State_Tax_Range As Range
+Dim County_Tax_Range As Range
+Dim City_Tax_Range As Range
+Dim Other_Taxes_Range As Range
+Dim GST_HST_Tax_Range As Range
+Dim PST_Tax_Range As Range
+Dim Notes_Range As Range
+Dim Reversal As Boolean
+
+
+Dim Number_of_Lines As Long
+
+Number_of_Lines = WorksheetFunction.CountA(RawData.Range("A:A"))
+Tax_Reversal = InputBox("Are you reversing tax for This invoice?")
+CorrectionDate = InputBox("What is the date for the transaction in which you wish to correct vertex?")
+
+For i = 2 To Number_of_Lines
+
+    If LCase(Tax_Reversal) = "yes" Then
+    Reversal = True
+    Else
+    Reversal = False
+    End If
+
+    Set Sage_InvoiceNo = RawData.Cells(i, 1)
+    Set Sage_HeaderSeqNo = RawData.Cells(i, 2)
+    Set Sage_ModuleCode = RawData.Cells(i, 3)
+    Set Sage_InvoiceType = RawData.Cells(i, 4)
+    Set Sage_InvoiceDate = RawData.Cells(i, 5)
+    Set Sage_TransactionDate = RawData.Cells(i, 6)
+    Set Sage_ARDivisionNo = RawData.Cells(i, 7)
+    Set Sage_CustomerNo = RawData.Cells(i, 8)
+    Set Sage_TermsCode = RawData.Cells(i, 9)
+    Set Sage_TaxSchedule = RawData.Cells(i, 10)
+    Set Sage_TaxExemptNo = RawData.Cells(i, 11)
+    Set Sage_SalespersonDivisionNo = RawData.Cells(i, 12)
+    Set Sage_SalespersonNo = RawData.Cells(i, 13)
+    Set Sage_CustomerPONo = RawData.Cells(i, 14)
+    Set Sage_ApplyToInvoiceNo = RawData.Cells(i, 15)
+    Set Sage_Comment = RawData.Cells(i, 16)
+    Set Sage_RepetitiveInvoiceRefNo = RawData.Cells(i, 17)
+    Set Sage_JobNo = RawData.Cells(i, 18)
+    Set Sage_InvoiceDueDate = RawData.Cells(i, 19)
+    Set Sage_DiscountDueDate = RawData.Cells(i, 20)
+    Set Sage_SourceJournal = RawData.Cells(i, 21)
+    Set Sage_JournalNoGLBatchNo = RawData.Cells(i, 22)
+    Set Sage_BatchFax = RawData.Cells(i, 23)
+    Set Sage_FaxNo = RawData.Cells(i, 24)
+    Set Sage_ShippingInvoice = RawData.Cells(i, 25)
+    Set Sage_SalesOrderNo = RawData.Cells(i, 26)
+    Set Sage_OrderType = RawData.Cells(i, 27)
+    Set Sage_OrderDate = RawData.Cells(i, 28)
+    Set Sage_BillToName = RawData.Cells(i, 29)
+    Set Sage_BillToAddress1 = RawData.Cells(i, 30)
+    Set Sage_BillToAddress2 = RawData.Cells(i, 31)
+    Set Sage_BillToAddress3 = RawData.Cells(i, 32)
+    Set Sage_BillToCity = RawData.Cells(i, 33)
+    Set Sage_BillToState = RawData.Cells(i, 34)
+    Set Sage_BillToZipCode = RawData.Cells(i, 35)
+    Set Sage_BillToCountryCode = RawData.Cells(i, 36)
+    Set Sage_ShipToCode = RawData.Cells(i, 37)
+    Set Sage_ShipToName = RawData.Cells(i, 38)
+    Set Sage_ShipToAddress1 = RawData.Cells(i, 39)
+    Set Sage_ShipToAddress2 = RawData.Cells(i, 40)
+    Set Sage_ShipToAddress3 = RawData.Cells(i, 41)
+    Set Sage_ShipToCity = RawData.Cells(i, 42)
+    Set Sage_ShipToState = RawData.Cells(i, 43)
+    Set Sage_ShipToZipCode = RawData.Cells(i, 44)
+    Set Sage_ShipToCountryCode = RawData.Cells(i, 45)
+    Set Sage_ShipDate = RawData.Cells(i, 46)
+    Set Sage_ShipVia = RawData.Cells(i, 47)
+    Set Sage_ShipZone = RawData.Cells(i, 48)
+    Set Sage_FOB = RawData.Cells(i, 49)
+    Set Sage_ConfirmTo = RawData.Cells(i, 50)
+    Set Sage_CheckNoForDeposit = RawData.Cells(i, 51)
+    Set Sage_SplitCommissions = RawData.Cells(i, 52)
+    Set Sage_SalespersonDivisionNo2 = RawData.Cells(i, 53)
+    Set Sage_SalespersonNo2 = RawData.Cells(i, 54)
+    Set Sage_SalespersonDivisionNo3 = RawData.Cells(i, 55)
+    Set Sage_SalespersonNo3 = RawData.Cells(i, 56)
+    Set Sage_SalespersonDivisionNo4 = RawData.Cells(i, 57)
+    Set Sage_SalespersonNo4 = RawData.Cells(i, 58)
+    Set Sage_SalespersonDivisionNo5 = RawData.Cells(i, 59)
+    Set Sage_SalespersonNo5 = RawData.Cells(i, 60)
+    Set Sage_PaymentType = RawData.Cells(i, 61)
+    Set Sage_PaymentTypeCategory = RawData.Cells(i, 62)
+    Set Sage_OtherPaymentTypeRefNo = RawData.Cells(i, 63)
+    Set Sage_RMANo = RawData.Cells(i, 64)
+    Set Sage_EBMSubmissionType = RawData.Cells(i, 65)
+    Set Sage_EBMUserIDSubmittingThisOrder = RawData.Cells(i, 66)
+    Set Sage_EBMUserType = RawData.Cells(i, 67)
+    Set Sage_ShipperID = RawData.Cells(i, 68)
+    Set Sage_UserKey = RawData.Cells(i, 69)
+    Set Sage_WarehouseCode = RawData.Cells(i, 70)
+    Set Sage_ShipWeight = RawData.Cells(i, 71)
+    Set Sage_ResidentialAddress = RawData.Cells(i, 72)
+    Set Sage_EmailAddress = RawData.Cells(i, 73)
+    Set Sage_TaxableSalesAmt = RawData.Cells(i, 74)
+    Set Sage_NonTaxableSalesAmt = RawData.Cells(i, 75)
+    Set Sage_FreightAmt = RawData.Cells(i, 76)
+    Set Sage_SalesTaxAmt = RawData.Cells(i, 77)
+    Set Sage_CostOfSalesAmt = RawData.Cells(i, 78)
+    Set Sage_AmountSubjectToDiscount = RawData.Cells(i, 79)
+    Set Sage_DiscountRate = RawData.Cells(i, 80)
+    Set Sage_DiscountAmt = RawData.Cells(i, 81)
+    Set Sage_SalesSubjectToComm = RawData.Cells(i, 82)
+    Set Sage_CostSubjectToComm = RawData.Cells(i, 83)
+    Set Sage_CommissionRate = RawData.Cells(i, 84)
+    Set Sage_CommissionAmt = RawData.Cells(i, 85)
+    Set Sage_SplitCommRate2 = RawData.Cells(i, 86)
+    Set Sage_SplitCommRate3 = RawData.Cells(i, 87)
+    Set Sage_SplitCommRate4 = RawData.Cells(i, 88)
+    Set Sage_SplitCommRate5 = RawData.Cells(i, 89)
+    Set Sage_DepositAmt = RawData.Cells(i, 90)
+    Set Sage_Weight = RawData.Cells(i, 91)
+    Set Sage_RetentionAmt = RawData.Cells(i, 92)
+    Set Sage_NumberOfPackages = RawData.Cells(i, 93)
+    Set Sage_DateUpdated = RawData.Cells(i, 94)
+    Set Sage_TimeUpdated = RawData.Cells(i, 95)
+    Set Sage_UserUpdatedKey = RawData.Cells(i, 96)
+    Set Sage_UDF_TEST = RawData.Cells(i, 97)
+    Set Sage_UDF_AMAZON_ID = RawData.Cells(i, 98)
+    Set Sage_CRMUserID = RawData.Cells(i, 99)
+    Set Sage_CRMCompanyID = RawData.Cells(i, 100)
+    Set Sage_CRMPersonID = RawData.Cells(i, 101)
+    Set Sage_CRMOpportunityID = RawData.Cells(i, 102)
+    Set Sage_UDF_ORDER_MANAGER = RawData.Cells(i, 103)
+    Set Sage_UDF_INVEMAIL = RawData.Cells(i, 104)
+    Set Sage_UDF_PAYPAL_ID = RawData.Cells(i, 105)
+    Set Sage_BillToDivisionNo = RawData.Cells(i, 106)
+    Set Sage_BillToCustomerNo = RawData.Cells(i, 107)
+    Set Sage_UDF_SO_NOTES = RawData.Cells(i, 108)
+    Set Sage_UDF_RMA_SPECIAL_INSTRUCTIONS = RawData.Cells(i, 109)
+    Set Sage_UDF_RMA_RESTOCKING_FEE = RawData.Cells(i, 110)
+    Set Sage_DateCreated = RawData.Cells(i, 111)
+    Set Sage_TimeCreated = RawData.Cells(i, 112)
+    Set Sage_UserCreatedKey = RawData.Cells(i, 113)
+    Set Sage_UDF_OSC_ID = RawData.Cells(i, 114)
+    Set Sage_UDF_COMMENTS = RawData.Cells(i, 115)
+    Set Sage_UDF_SHIPACCT = RawData.Cells(i, 116)
+    Set Sage_UDF_SO_BILL_ATTN = RawData.Cells(i, 117)
+    Set Sage_UDF_SO_INCOTERMS = RawData.Cells(i, 118)
+    Set Sage_UDF_SO_SHIP_ATTN = RawData.Cells(i, 119)
+    Set Sage_AR551ELK_UserID = RawData.Cells(i, 120)
+    Set Sage_AR551ELK_WebOrderNo = RawData.Cells(i, 121)
+    Set Sage_UDF_MKTPLC_SALES_TAX = RawData.Cells(i, 122)
+    Set Sage_MultipleSalesOrdersApplied = RawData.Cells(i, 123)
+    Set Sage_MultipleCustomerPONos = RawData.Cells(i, 124)
+    Set Sage_MultipleDepositsApplied = RawData.Cells(i, 125)
+    Set Sage_EInvoiceId = RawData.Cells(i, 126)
+    Set Sage_EncryptedVals = RawData.Cells(i, 127)
+    Set Sage_UDF_MKTPLC_SALES_TAX_STR = RawData.Cells(i, 128)
+    Set Sage_UDF_DROP_SHIP = RawData.Cells(i, 129)
+    Set Sage_UDF_INSURANCE = RawData.Cells(i, 130)
+    Set Sage_UDF_NO_INSURANCE = RawData.Cells(i, 131)
+    Set Sage_UDF_SIGN_REQD = RawData.Cells(i, 132)
+    Set Sage_UDF_TELEPHONE = RawData.Cells(i, 133)
+    Set Sage_UDF_SIGNIFYD_CODE = RawData.Cells(i, 134)
+    Set Sage_UDF_SIGNIFYD_SCORE = RawData.Cells(i, 135)
+    Set Sage_UDF_INSUREAMT = RawData.Cells(i, 136)
+    Set Sage_UDF_SO_SHIP_BILL_TYPE = RawData.Cells(i, 137)
+    Set Sage_UDF_SATURDAY_DELIVERY = RawData.Cells(i, 138)
+    Set Sage_CombinedAddress = RawData.Cells(i, 139)
+    Set Sage_ItemCode = RawData.Cells(i, 140)
+    Set Sage_ExtensionAmt = RawData.Cells(i, 141)
+    Set Sage_TaxClass = RawData.Cells(i, 142)
+    Set Sage_QuantityShipped = RawData.Cells(i, 143)
+    Set Sage_UnitPrice = RawData.Cells(i, 144)
+    
+    
+    Set Results_Range = UploadSheet.Cells(i, 1)
+    Set Document_Number_Range = UploadSheet.Cells(i, 2)
+    Set Document_Date_Range = UploadSheet.Cells(i, 3)
+    Set Posting_Date_Range = UploadSheet.Cells(i, 4)
+    Set Location_Code_Range = UploadSheet.Cells(i, 5)
+    Set Company_Code_Range = UploadSheet.Cells(i, 6)
+    Set Phys_Origin_TAID_Range = UploadSheet.Cells(i, 7)
+    Set Phys_Origin_Street_Address_Range = UploadSheet.Cells(i, 8)
+    Set Phys_Origin_City_Range = UploadSheet.Cells(i, 9)
+    Set Phys_Origin_State_Range = UploadSheet.Cells(i, 10)
+    Set Phys_Origin_Zip_Range = UploadSheet.Cells(i, 11)
+    Set Phys_Origin_Country_Range = UploadSheet.Cells(i, 12)
+    Set Customer_Code_Range = UploadSheet.Cells(i, 13)
+    Set Customer_Class_Code_Range = UploadSheet.Cells(i, 14)
+    Set Certificate_Number_Range = UploadSheet.Cells(i, 15)
+    Set Shipping_Term_Range = UploadSheet.Cells(i, 16)
+    Set Destination_TAID_Range = UploadSheet.Cells(i, 17)
+    Set Destination_Street_Address_Range = UploadSheet.Cells(i, 18)
+    Set Destination_City_Range = UploadSheet.Cells(i, 19)
+    Set Destination_State_Range = UploadSheet.Cells(i, 20)
+    Set Destination_Zip_Range = UploadSheet.Cells(i, 21)
+    Set Destination_Country_Range = UploadSheet.Cells(i, 22)
+    Set Line_Item_Number_Range = UploadSheet.Cells(i, 23)
+    Set Product_Code_Range = UploadSheet.Cells(i, 24)
+    Set Product_Class_Code_Range = UploadSheet.Cells(i, 25)
+    Set Quantity_Range = UploadSheet.Cells(i, 26)
+    Set Unit_Price_Range = UploadSheet.Cells(i, 27)
+    Set Extended_Price_Range = UploadSheet.Cells(i, 28)
+    Set Discount_Code_Range = UploadSheet.Cells(i, 29)
+    Set Discount_Amount_Range = UploadSheet.Cells(i, 30)
+    Set Discount_Percentage_Range = UploadSheet.Cells(i, 31)
+    Set FlexCode01_Range = UploadSheet.Cells(i, 32)
+    Set FlexCode02_Range = UploadSheet.Cells(i, 33)
+    Set FlexCode03_Range = UploadSheet.Cells(i, 34)
+    Set FlexCode04_Range = UploadSheet.Cells(i, 35)
+    Set FlexCode05_Range = UploadSheet.Cells(i, 36)
+    Set FlexCode06_Range = UploadSheet.Cells(i, 37)
+    Set FlexCode07_Range = UploadSheet.Cells(i, 38)
+    Set FlexCode08_Range = UploadSheet.Cells(i, 39)
+    Set FlexCode09_Range = UploadSheet.Cells(i, 40)
+    Set FlexCode10_Range = UploadSheet.Cells(i, 41)
+    Set FlexCode11_Range = UploadSheet.Cells(i, 42)
+    Set FlexCode12_Range = UploadSheet.Cells(i, 43)
+    Set FlexCode13_Range = UploadSheet.Cells(i, 44)
+    Set FlexCode14_Range = UploadSheet.Cells(i, 45)
+    Set FlexCode15_Range = UploadSheet.Cells(i, 46)
+    Set FlexCode16_Range = UploadSheet.Cells(i, 47)
+    Set FlexCode17_Range = UploadSheet.Cells(i, 48)
+    Set FlexCode18_Range = UploadSheet.Cells(i, 49)
+    Set FlexCode19_Range = UploadSheet.Cells(i, 50)
+    Set FlexCode20_Range = UploadSheet.Cells(i, 51)
+    Set FlexCode21_Range = UploadSheet.Cells(i, 52)
+    Set FlexCode22_Range = UploadSheet.Cells(i, 53)
+    Set FlexCode23_Range = UploadSheet.Cells(i, 54)
+    Set FlexCode24_Range = UploadSheet.Cells(i, 55)
+    Set FlexCode25_Range = UploadSheet.Cells(i, 56)
+    Set FlexNum1_Range = UploadSheet.Cells(i, 57)
+    Set FlexNum2_Range = UploadSheet.Cells(i, 58)
+    Set FlexNum3_Range = UploadSheet.Cells(i, 59)
+    Set FlexNum4_Range = UploadSheet.Cells(i, 60)
+    Set FlexNum5_Range = UploadSheet.Cells(i, 61)
+    Set FlexNum6_Range = UploadSheet.Cells(i, 62)
+    Set FlexNum7_Range = UploadSheet.Cells(i, 63)
+    Set FlexNum8_Range = UploadSheet.Cells(i, 64)
+    Set FlexNum9_Range = UploadSheet.Cells(i, 65)
+    Set FlexNum10_Range = UploadSheet.Cells(i, 66)
+    Set FlexDate1_Range = UploadSheet.Cells(i, 67)
+    Set FlexDate2_Range = UploadSheet.Cells(i, 68)
+    Set FlexDate3_Range = UploadSheet.Cells(i, 69)
+    Set FlexDate4_Range = UploadSheet.Cells(i, 70)
+    Set FlexDate5_Range = UploadSheet.Cells(i, 71)
+    Set Total_Tax_Amount_Range = UploadSheet.Cells(i, 72)
+    Set Reserved1_Range = UploadSheet.Cells(i, 73)
+    Set State_Tax_Range = UploadSheet.Cells(i, 74)
+    Set County_Tax_Range = UploadSheet.Cells(i, 75)
+    Set City_Tax_Range = UploadSheet.Cells(i, 76)
+    Set Other_Taxes_Range = UploadSheet.Cells(i, 77)
+    Set GST_HST_Tax_Range = UploadSheet.Cells(i, 78)
+    Set PST_Tax_Range = UploadSheet.Cells(i, 79)
+    Set Notes_Range = UploadSheet.Cells(i, 80)
+
+
+    Document_Number_Range.Formula = "=" & """C""" & " & RIGHT(LEFT(" & Sage_InvoiceNo.Address(External:=True) & " & ""-"" & " & Sage_InvoiceType.Address(External:=True) & ", 7), 6)"
+    Document_Number_Range.Value = Document_Number_Range.Value & "-" & Sage_InvoiceType.Value
+    Document_Date_Range.Value = CorrectionDate
+    Document_Date_Range.NumberFormat = "mm/dd/yyyy"
+    Posting_Date_Range.Value = CorrectionDate
+    Posting_Date_Range.NumberFormat = "mm/dd/yyyy"
+    Location_Code_Range.Value = ""
+    Company_Code_Range.Value = "FOT"
+    Phys_Origin_TAID_Range.Value = ""
+    Phys_Origin_Street_Address_Range.Value = "5 Commonwealth Avenue, Unit 6"
+    Phys_Origin_City_Range.Value = "Woburn"
+    Phys_Origin_State_Range.Value = "MA"
+    Phys_Origin_Zip_Range.Value = "01801"
+    Phys_Origin_Country_Range.Value = "USA"
+    Customer_Code_Range.Formula = "=" & """00""" & " & " & Sage_CustomerNo.Address(External:=True)
+    Customer_Class_Code_Range.Value = ""
+    Certificate_Number_Range.Value = ""
+    Shipping_Term_Range.Value = ""
+    Destination_TAID_Range.Value = ""
+    Destination_Street_Address_Range.Value = "=" & Sage_CombinedAddress.Address(External:=True)
+    Destination_City_Range.Value = "=" & Sage_ShipToCity.Address(External:=True)
+    Destination_State_Range.Value = "=" & Sage_ShipToState.Address(External:=True)
+    Destination_Zip_Range.Value = "=" & Sage_ShipToZipCode.Address(External:=True)
+    Destination_Country_Range.Value = "=" & Sage_ShipToCountryCode.Address(External:=True)
+    Line_Item_Number_Range = i - 1
+    Product_Code_Range.Value = "=" & Sage_ItemCode.Address(External:=True)
+    Product_Class_Code_Range.Value = "=" & Sage_TaxClass.Address(External:=True)
+    Quantity_Range.Value = "=" & Sage_QuantityShipped.Address(External:=True)
+    Unit_Price_Range.Value = "=" & Sage_UnitPrice.Address(External:=True)
+    Extended_Price_Range.Value = "=" & Sage_ExtensionAmt.Address(External:=True)
+    Discount_Code_Range.Value = ""
+    Discount_Amount_Range.Value = ""
+    Discount_Percentage_Range.Value = ""
+    FlexCode01_Range.Value = ""
+
+
+    
+    If i = Number_of_Lines And Sage_FreightAmt.Value <> 0 Then
+    
+        Set Results_Range = UploadSheet.Cells(i + 1, 1)
+        Set Document_Number_Range = UploadSheet.Cells(i + 1, 2)
+        Set Document_Date_Range = UploadSheet.Cells(i + 1, 3)
+        Set Posting_Date_Range = UploadSheet.Cells(i + 1, 4)
+        Set Location_Code_Range = UploadSheet.Cells(i + 1, 5)
+        Set Company_Code_Range = UploadSheet.Cells(i + 1, 6)
+        Set Phys_Origin_TAID_Range = UploadSheet.Cells(i + 1, 7)
+        Set Phys_Origin_Street_Address_Range = UploadSheet.Cells(i + 1, 8)
+        Set Phys_Origin_City_Range = UploadSheet.Cells(i + 1, 9)
+        Set Phys_Origin_State_Range = UploadSheet.Cells(i + 1, 10)
+        Set Phys_Origin_Zip_Range = UploadSheet.Cells(i + 1, 11)
+        Set Phys_Origin_Country_Range = UploadSheet.Cells(i + 1, 12)
+        Set Customer_Code_Range = UploadSheet.Cells(i + 1, 13)
+        Set Customer_Class_Code_Range = UploadSheet.Cells(i + 1, 14)
+        Set Certificate_Number_Range = UploadSheet.Cells(i + 1, 15)
+        Set Shipping_Term_Range = UploadSheet.Cells(i + 1, 16)
+        Set Destination_TAID_Range = UploadSheet.Cells(i + 1, 17)
+        Set Destination_Street_Address_Range = UploadSheet.Cells(i + 1, 18)
+        Set Destination_City_Range = UploadSheet.Cells(i + 1, 19)
+        Set Destination_State_Range = UploadSheet.Cells(i + 1, 20)
+        Set Destination_Zip_Range = UploadSheet.Cells(i + 1, 21)
+        Set Destination_Country_Range = UploadSheet.Cells(i + 1, 22)
+        Set Line_Item_Number_Range = UploadSheet.Cells(i + 1, 23)
+        Set Product_Code_Range = UploadSheet.Cells(i + 1, 24)
+        Set Product_Class_Code_Range = UploadSheet.Cells(i + 1, 25)
+        Set Quantity_Range = UploadSheet.Cells(i + 1, 26)
+        Set Unit_Price_Range = UploadSheet.Cells(i + 1, 27)
+        Set Extended_Price_Range = UploadSheet.Cells(i + 1, 28)
+        Set Discount_Code_Range = UploadSheet.Cells(i + 1, 29)
+        Set Discount_Amount_Range = UploadSheet.Cells(i + 1, 30)
+        Set Discount_Percentage_Range = UploadSheet.Cells(i + 1, 31)
+        Set FlexCode01_Range = UploadSheet.Cells(i + 1, 32)
+        Set FlexCode02_Range = UploadSheet.Cells(i + 1, 33)
+        Set FlexCode03_Range = UploadSheet.Cells(i + 1, 34)
+        Set FlexCode04_Range = UploadSheet.Cells(i + 1, 35)
+        Set FlexCode05_Range = UploadSheet.Cells(i + 1, 36)
+        Set FlexCode06_Range = UploadSheet.Cells(i + 1, 37)
+        Set FlexCode07_Range = UploadSheet.Cells(i + 1, 38)
+        Set FlexCode08_Range = UploadSheet.Cells(i + 1, 39)
+        Set FlexCode09_Range = UploadSheet.Cells(i + 1, 40)
+        Set FlexCode10_Range = UploadSheet.Cells(i + 1, 41)
+        Set FlexCode11_Range = UploadSheet.Cells(i + 1, 42)
+        Set FlexCode12_Range = UploadSheet.Cells(i + 1, 43)
+        Set FlexCode13_Range = UploadSheet.Cells(i + 1, 44)
+        Set FlexCode14_Range = UploadSheet.Cells(i + 1, 45)
+        Set FlexCode15_Range = UploadSheet.Cells(i + 1, 46)
+        Set FlexCode16_Range = UploadSheet.Cells(i + 1, 47)
+        Set FlexCode17_Range = UploadSheet.Cells(i + 1, 48)
+        Set FlexCode18_Range = UploadSheet.Cells(i + 1, 49)
+        Set FlexCode19_Range = UploadSheet.Cells(i + 1, 50)
+        Set FlexCode20_Range = UploadSheet.Cells(i + 1, 51)
+        Set FlexCode21_Range = UploadSheet.Cells(i + 1, 52)
+        Set FlexCode22_Range = UploadSheet.Cells(i + 1, 53)
+        Set FlexCode23_Range = UploadSheet.Cells(i + 1, 54)
+        Set FlexCode24_Range = UploadSheet.Cells(i + 1, 55)
+        Set FlexCode25_Range = UploadSheet.Cells(i + 1, 56)
+        Set FlexNum1_Range = UploadSheet.Cells(i + 1, 57)
+        Set FlexNum2_Range = UploadSheet.Cells(i + 1, 58)
+        Set FlexNum3_Range = UploadSheet.Cells(i + 1, 59)
+        Set FlexNum4_Range = UploadSheet.Cells(i + 1, 60)
+        Set FlexNum5_Range = UploadSheet.Cells(i + 1, 61)
+        Set FlexNum6_Range = UploadSheet.Cells(i + 1, 62)
+        Set FlexNum7_Range = UploadSheet.Cells(i + 1, 63)
+        Set FlexNum8_Range = UploadSheet.Cells(i + 1, 64)
+        Set FlexNum9_Range = UploadSheet.Cells(i + 1, 65)
+        Set FlexNum10_Range = UploadSheet.Cells(i + 1, 66)
+        Set FlexDate1_Range = UploadSheet.Cells(i + 1, 67)
+        Set FlexDate2_Range = UploadSheet.Cells(i + 1, 68)
+        Set FlexDate3_Range = UploadSheet.Cells(i + 1, 69)
+        Set FlexDate4_Range = UploadSheet.Cells(i + 1, 70)
+        Set FlexDate5_Range = UploadSheet.Cells(i + 1, 71)
+        Set Total_Tax_Amount_Range = UploadSheet.Cells(i + 1, 72)
+        Set Reserved1_Range = UploadSheet.Cells(i + 1, 73)
+        Set State_Tax_Range = UploadSheet.Cells(i + 1, 74)
+        Set County_Tax_Range = UploadSheet.Cells(i + 1, 75)
+        Set City_Tax_Range = UploadSheet.Cells(i + 1, 76)
+        Set Other_Taxes_Range = UploadSheet.Cells(i + 1, 77)
+        Set GST_HST_Tax_Range = UploadSheet.Cells(i + 1, 78)
+        Set PST_Tax_Range = UploadSheet.Cells(i + 1, 79)
+        Set Notes_Range = UploadSheet.Cells(i + 1, 80)
+        
+        
+        Document_Number_Range.Formula = "=" & """C""" & " & RIGHT(LEFT(" & Sage_InvoiceNo.Address(External:=True) & " & ""-"" & " & Sage_InvoiceType.Address(External:=True) & ", 7), 6)"
+        Document_Number_Range.Value = Document_Number_Range.Value & "-" & Sage_InvoiceType.Value
+        Document_Date_Range.Value = CorrectionDate
+        Document_Date_Range.NumberFormat = "mm/dd/yyyy"
+        Posting_Date_Range.Value = CorrectionDate
+        Posting_Date_Range.NumberFormat = "mm/dd/yyyy"
+        Location_Code_Range.Value = ""
+        Company_Code_Range.Value = "FOT"
+        Phys_Origin_TAID_Range.Value = ""
+        Phys_Origin_Street_Address_Range.Value = "5 Commonwealth Avenue, Unit 6"
+        Phys_Origin_City_Range.Value = "Woburn"
+        Phys_Origin_State_Range.Value = "MA"
+        Phys_Origin_Zip_Range.Value = "01801"
+        Phys_Origin_Country_Range.Value = "USA"
+        
+        Customer_Code_Range.Formula = "=" & """00""" & " & " & Sage_CustomerNo.Address(External:=True)
+        Customer_Class_Code_Range.Value = ""
+        Certificate_Number_Range.Value = ""
+        Shipping_Term_Range.Value = ""
+        Destination_TAID_Range.Value = ""
+        Destination_Street_Address_Range.Value = "=" & Sage_CombinedAddress.Address(External:=True)
+        Destination_City_Range.Value = "=" & Sage_ShipToCity.Address(External:=True)
+        Destination_State_Range.Value = "=" & Sage_ShipToState.Address(External:=True)
+        Destination_Zip_Range.Value = "=" & Sage_ShipToZipCode.Address(External:=True)
+        Destination_Country_Range.Value = "=" & Sage_ShipToCountryCode.Address(External:=True)
+        Line_Item_Number_Range = i
+        Product_Code_Range.Value = ""
+        Product_Class_Code_Range.Value = "FREIGHT"
+        Quantity_Range.Value = "1"
+        Unit_Price_Range.Value = "=" & Sage_FreightAmt.Address(External:=True)
+        Extended_Price_Range.Value = "=" & Sage_FreightAmt.Address(External:=True)
+    
+    End If
+ 
+
 Next i
 
-OpenDir = Left(ActiveWorkbook.FullName, Last_Occurance - 1)
-Shell "C:\WINDOWS\explorer.exe """ & OpenDir & "", vbNormalFocus
 
+If Reversal Then
+    Dim Upload_LL As Long
+    Dim offset As Long
+    Upload_LL = WorksheetFunction.CountA(UploadSheet.Range("B:B"))
+    Number_of_Lines = WorksheetFunction.CountA(RawData.Range("A:A")) * 2
+ For i = Upload_LL + 1 To Upload_LL + (WorksheetFunction.CountA(RawData.Range("A:A")) - 1)
+ 
+  
+    offset = i - Upload_LL + 1
+      
+        
+        Set Sage_InvoiceNo = RawData.Cells(offset, 1)
+        Set Sage_HeaderSeqNo = RawData.Cells(offset, 2)
+        Set Sage_ModuleCode = RawData.Cells(offset, 3)
+        Set Sage_InvoiceType = RawData.Cells(offset, 4)
+        Set Sage_InvoiceDate = RawData.Cells(offset, 5)
+        Set Sage_TransactionDate = RawData.Cells(offset, 6)
+        Set Sage_ARDivisionNo = RawData.Cells(offset, 7)
+        Set Sage_CustomerNo = RawData.Cells(offset, 8)
+        Set Sage_TermsCode = RawData.Cells(offset, 9)
+        Set Sage_TaxSchedule = RawData.Cells(offset, 10)
+        Set Sage_TaxExemptNo = RawData.Cells(offset, 11)
+        Set Sage_SalespersonDivisionNo = RawData.Cells(offset, 12)
+        Set Sage_SalespersonNo = RawData.Cells(offset, 13)
+        Set Sage_CustomerPONo = RawData.Cells(offset, 14)
+        Set Sage_ApplyToInvoiceNo = RawData.Cells(offset, 15)
+        Set Sage_Comment = RawData.Cells(offset, 16)
+        Set Sage_RepetitiveInvoiceRefNo = RawData.Cells(offset, 17)
+        Set Sage_JobNo = RawData.Cells(offset, 18)
+        Set Sage_InvoiceDueDate = RawData.Cells(offset, 19)
+        Set Sage_DiscountDueDate = RawData.Cells(offset, 20)
+        Set Sage_SourceJournal = RawData.Cells(offset, 21)
+        Set Sage_JournalNoGLBatchNo = RawData.Cells(offset, 22)
+        Set Sage_BatchFax = RawData.Cells(offset, 23)
+        Set Sage_FaxNo = RawData.Cells(offset, 24)
+        Set Sage_ShippingInvoice = RawData.Cells(offset, 25)
+        Set Sage_SalesOrderNo = RawData.Cells(offset, 26)
+        Set Sage_OrderType = RawData.Cells(offset, 27)
+        Set Sage_OrderDate = RawData.Cells(offset, 28)
+        Set Sage_BillToName = RawData.Cells(offset, 29)
+        Set Sage_BillToAddress1 = RawData.Cells(offset, 30)
+        Set Sage_BillToAddress2 = RawData.Cells(offset, 31)
+        Set Sage_BillToAddress3 = RawData.Cells(offset, 32)
+        Set Sage_BillToCity = RawData.Cells(offset, 33)
+        Set Sage_BillToState = RawData.Cells(offset, 34)
+        Set Sage_BillToZipCode = RawData.Cells(offset, 35)
+        Set Sage_BillToCountryCode = RawData.Cells(offset, 36)
+        Set Sage_ShipToCode = RawData.Cells(offset, 37)
+        Set Sage_ShipToName = RawData.Cells(offset, 38)
+        Set Sage_ShipToAddress1 = RawData.Cells(offset, 39)
+        Set Sage_ShipToAddress2 = RawData.Cells(offset, 40)
+        Set Sage_ShipToAddress3 = RawData.Cells(offset, 41)
+        Set Sage_ShipToCity = RawData.Cells(offset, 42)
+        Set Sage_ShipToState = RawData.Cells(offset, 43)
+        Set Sage_ShipToZipCode = RawData.Cells(offset, 44)
+        Set Sage_ShipToCountryCode = RawData.Cells(offset, 45)
+        Set Sage_ShipDate = RawData.Cells(offset, 46)
+        Set Sage_ShipVia = RawData.Cells(offset, 47)
+        Set Sage_ShipZone = RawData.Cells(offset, 48)
+        Set Sage_FOB = RawData.Cells(offset, 49)
+        Set Sage_ConfirmTo = RawData.Cells(offset, 50)
+        Set Sage_CheckNoForDeposit = RawData.Cells(offset, 51)
+        Set Sage_SplitCommissions = RawData.Cells(offset, 52)
+        Set Sage_SalespersonDivisionNo2 = RawData.Cells(offset, 53)
+        Set Sage_SalespersonNo2 = RawData.Cells(offset, 54)
+        Set Sage_SalespersonDivisionNo3 = RawData.Cells(offset, 55)
+        Set Sage_SalespersonNo3 = RawData.Cells(offset, 56)
+        Set Sage_SalespersonDivisionNo4 = RawData.Cells(offset, 57)
+        Set Sage_SalespersonNo4 = RawData.Cells(offset, 58)
+        Set Sage_SalespersonDivisionNo5 = RawData.Cells(offset, 59)
+        Set Sage_SalespersonNo5 = RawData.Cells(offset, 60)
+        Set Sage_PaymentType = RawData.Cells(offset, 61)
+        Set Sage_PaymentTypeCategory = RawData.Cells(offset, 62)
+        Set Sage_OtherPaymentTypeRefNo = RawData.Cells(offset, 63)
+        Set Sage_RMANo = RawData.Cells(offset, 64)
+        Set Sage_EBMSubmissionType = RawData.Cells(offset, 65)
+        Set Sage_EBMUserIDSubmittingThisOrder = RawData.Cells(offset, 66)
+        Set Sage_EBMUserType = RawData.Cells(offset, 67)
+        Set Sage_ShipperID = RawData.Cells(offset, 68)
+        Set Sage_UserKey = RawData.Cells(offset, 69)
+        Set Sage_WarehouseCode = RawData.Cells(offset, 70)
+        Set Sage_ShipWeight = RawData.Cells(offset, 71)
+        Set Sage_ResidentialAddress = RawData.Cells(offset, 72)
+        Set Sage_EmailAddress = RawData.Cells(offset, 73)
+        Set Sage_TaxableSalesAmt = RawData.Cells(offset, 74)
+        Set Sage_NonTaxableSalesAmt = RawData.Cells(offset, 75)
+        Set Sage_FreightAmt = RawData.Cells(offset, 76)
+        Set Sage_SalesTaxAmt = RawData.Cells(offset, 77)
+        Set Sage_CostOfSalesAmt = RawData.Cells(offset, 78)
+        Set Sage_AmountSubjectToDiscount = RawData.Cells(offset, 79)
+        Set Sage_DiscountRate = RawData.Cells(offset, 80)
+        Set Sage_DiscountAmt = RawData.Cells(offset, 81)
+        Set Sage_SalesSubjectToComm = RawData.Cells(offset, 82)
+        Set Sage_CostSubjectToComm = RawData.Cells(offset, 83)
+        Set Sage_CommissionRate = RawData.Cells(offset, 84)
+        Set Sage_CommissionAmt = RawData.Cells(offset, 85)
+        Set Sage_SplitCommRate2 = RawData.Cells(offset, 86)
+        Set Sage_SplitCommRate3 = RawData.Cells(offset, 87)
+        Set Sage_SplitCommRate4 = RawData.Cells(offset, 88)
+        Set Sage_SplitCommRate5 = RawData.Cells(offset, 89)
+        Set Sage_DepositAmt = RawData.Cells(offset, 90)
+        Set Sage_Weight = RawData.Cells(offset, 91)
+        Set Sage_RetentionAmt = RawData.Cells(offset, 92)
+        Set Sage_NumberOfPackages = RawData.Cells(offset, 93)
+        Set Sage_DateUpdated = RawData.Cells(offset, 94)
+        Set Sage_TimeUpdated = RawData.Cells(offset, 95)
+        Set Sage_UserUpdatedKey = RawData.Cells(offset, 96)
+        Set Sage_UDF_TEST = RawData.Cells(offset, 97)
+        Set Sage_UDF_AMAZON_ID = RawData.Cells(offset, 98)
+        Set Sage_CRMUserID = RawData.Cells(offset, 99)
+        Set Sage_CRMCompanyID = RawData.Cells(offset, 100)
+        Set Sage_CRMPersonID = RawData.Cells(offset, 101)
+        Set Sage_CRMOpportunityID = RawData.Cells(offset, 102)
+        Set Sage_UDF_ORDER_MANAGER = RawData.Cells(offset, 103)
+        Set Sage_UDF_INVEMAIL = RawData.Cells(offset, 104)
+        Set Sage_UDF_PAYPAL_ID = RawData.Cells(offset, 105)
+        Set Sage_BillToDivisionNo = RawData.Cells(offset, 106)
+        Set Sage_BillToCustomerNo = RawData.Cells(offset, 107)
+        Set Sage_UDF_SO_NOTES = RawData.Cells(offset, 108)
+        Set Sage_UDF_RMA_SPECIAL_INSTRUCTIONS = RawData.Cells(offset, 109)
+        Set Sage_UDF_RMA_RESTOCKING_FEE = RawData.Cells(offset, 110)
+        Set Sage_DateCreated = RawData.Cells(offset, 111)
+        Set Sage_TimeCreated = RawData.Cells(offset, 112)
+        Set Sage_UserCreatedKey = RawData.Cells(offset, 113)
+        Set Sage_UDF_OSC_ID = RawData.Cells(offset, 114)
+        Set Sage_UDF_COMMENTS = RawData.Cells(offset, 115)
+        Set Sage_UDF_SHIPACCT = RawData.Cells(offset, 116)
+        Set Sage_UDF_SO_BILL_ATTN = RawData.Cells(offset, 117)
+        Set Sage_UDF_SO_INCOTERMS = RawData.Cells(offset, 118)
+        Set Sage_UDF_SO_SHIP_ATTN = RawData.Cells(offset, 119)
+        Set Sage_AR551ELK_UserID = RawData.Cells(offset, 120)
+        Set Sage_AR551ELK_WebOrderNo = RawData.Cells(offset, 121)
+        Set Sage_UDF_MKTPLC_SALES_TAX = RawData.Cells(offset, 122)
+        Set Sage_MultipleSalesOrdersApplied = RawData.Cells(offset, 123)
+        Set Sage_MultipleCustomerPONos = RawData.Cells(offset, 124)
+        Set Sage_MultipleDepositsApplied = RawData.Cells(offset, 125)
+        Set Sage_EInvoiceId = RawData.Cells(offset, 126)
+        Set Sage_EncryptedVals = RawData.Cells(offset, 127)
+        Set Sage_UDF_MKTPLC_SALES_TAX_STR = RawData.Cells(offset, 128)
+        Set Sage_UDF_DROP_SHIP = RawData.Cells(offset, 129)
+        Set Sage_UDF_INSURANCE = RawData.Cells(offset, 130)
+        Set Sage_UDF_NO_INSURANCE = RawData.Cells(offset, 131)
+        Set Sage_UDF_SIGN_REQD = RawData.Cells(offset, 132)
+        Set Sage_UDF_TELEPHONE = RawData.Cells(offset, 133)
+        Set Sage_UDF_SIGNIFYD_CODE = RawData.Cells(offset, 134)
+        Set Sage_UDF_SIGNIFYD_SCORE = RawData.Cells(offset, 135)
+        Set Sage_UDF_INSUREAMT = RawData.Cells(offset, 136)
+        Set Sage_UDF_SO_SHIP_BILL_TYPE = RawData.Cells(offset, 137)
+        Set Sage_UDF_SATURDAY_DELIVERY = RawData.Cells(offset, 138)
+        Set Sage_CombinedAddress = RawData.Cells(offset, 139)
+        Set Sage_ItemCode = RawData.Cells(offset, 140)
+        Set Sage_ExtensionAmt = RawData.Cells(offset, 141)
+        Set Sage_TaxClass = RawData.Cells(offset, 142)
+        Set Sage_QuantityShipped = RawData.Cells(offset, 143)
+        Set Sage_UnitPrice = RawData.Cells(offset, 144)
+        
+        Set Results_Range = UploadSheet.Cells(i, 1)
+        Set Document_Number_Range = UploadSheet.Cells(i, 2)
+        Set Document_Date_Range = UploadSheet.Cells(i, 3)
+        Set Posting_Date_Range = UploadSheet.Cells(i, 4)
+        Set Location_Code_Range = UploadSheet.Cells(i, 5)
+        Set Company_Code_Range = UploadSheet.Cells(i, 6)
+        Set Phys_Origin_TAID_Range = UploadSheet.Cells(i, 7)
+        Set Phys_Origin_Street_Address_Range = UploadSheet.Cells(i, 8)
+        Set Phys_Origin_City_Range = UploadSheet.Cells(i, 9)
+        Set Phys_Origin_State_Range = UploadSheet.Cells(i, 10)
+        Set Phys_Origin_Zip_Range = UploadSheet.Cells(i, 11)
+        Set Phys_Origin_Country_Range = UploadSheet.Cells(i, 12)
+        Set Customer_Code_Range = UploadSheet.Cells(i, 13)
+        Set Customer_Class_Code_Range = UploadSheet.Cells(i, 14)
+        Set Certificate_Number_Range = UploadSheet.Cells(i, 15)
+        Set Shipping_Term_Range = UploadSheet.Cells(i, 16)
+        Set Destination_TAID_Range = UploadSheet.Cells(i, 17)
+        Set Destination_Street_Address_Range = UploadSheet.Cells(i, 18)
+        Set Destination_City_Range = UploadSheet.Cells(i, 19)
+        Set Destination_State_Range = UploadSheet.Cells(i, 20)
+        Set Destination_Zip_Range = UploadSheet.Cells(i, 21)
+        Set Destination_Country_Range = UploadSheet.Cells(i, 22)
+        Set Line_Item_Number_Range = UploadSheet.Cells(i, 23)
+        Set Product_Code_Range = UploadSheet.Cells(i, 24)
+        Set Product_Class_Code_Range = UploadSheet.Cells(i, 25)
+        Set Quantity_Range = UploadSheet.Cells(i, 26)
+        Set Unit_Price_Range = UploadSheet.Cells(i, 27)
+        Set Extended_Price_Range = UploadSheet.Cells(i, 28)
+        Set Discount_Code_Range = UploadSheet.Cells(i, 29)
+        Set Discount_Amount_Range = UploadSheet.Cells(i, 30)
+        Set Discount_Percentage_Range = UploadSheet.Cells(i, 31)
+        Set FlexCode01_Range = UploadSheet.Cells(i, 32)
+        Set FlexCode02_Range = UploadSheet.Cells(i, 33)
+        Set FlexCode03_Range = UploadSheet.Cells(i, 34)
+        Set FlexCode04_Range = UploadSheet.Cells(i, 35)
+        Set FlexCode05_Range = UploadSheet.Cells(i, 36)
+        Set FlexCode06_Range = UploadSheet.Cells(i, 37)
+        Set FlexCode07_Range = UploadSheet.Cells(i, 38)
+        Set FlexCode08_Range = UploadSheet.Cells(i, 39)
+        Set FlexCode09_Range = UploadSheet.Cells(i, 40)
+        Set FlexCode10_Range = UploadSheet.Cells(i, 41)
+        Set FlexCode11_Range = UploadSheet.Cells(i, 42)
+        Set FlexCode12_Range = UploadSheet.Cells(i, 43)
+        Set FlexCode13_Range = UploadSheet.Cells(i, 44)
+        Set FlexCode14_Range = UploadSheet.Cells(i, 45)
+        Set FlexCode15_Range = UploadSheet.Cells(i, 46)
+        Set FlexCode16_Range = UploadSheet.Cells(i, 47)
+        Set FlexCode17_Range = UploadSheet.Cells(i, 48)
+        Set FlexCode18_Range = UploadSheet.Cells(i, 49)
+        Set FlexCode19_Range = UploadSheet.Cells(i, 50)
+        Set FlexCode20_Range = UploadSheet.Cells(i, 51)
+        Set FlexCode21_Range = UploadSheet.Cells(i, 52)
+        Set FlexCode22_Range = UploadSheet.Cells(i, 53)
+        Set FlexCode23_Range = UploadSheet.Cells(i, 54)
+        Set FlexCode24_Range = UploadSheet.Cells(i, 55)
+        Set FlexCode25_Range = UploadSheet.Cells(i, 56)
+        Set FlexNum1_Range = UploadSheet.Cells(i, 57)
+        Set FlexNum2_Range = UploadSheet.Cells(i, 58)
+        Set FlexNum3_Range = UploadSheet.Cells(i, 59)
+        Set FlexNum4_Range = UploadSheet.Cells(i, 60)
+        Set FlexNum5_Range = UploadSheet.Cells(i, 61)
+        Set FlexNum6_Range = UploadSheet.Cells(i, 62)
+        Set FlexNum7_Range = UploadSheet.Cells(i, 63)
+        Set FlexNum8_Range = UploadSheet.Cells(i, 64)
+        Set FlexNum9_Range = UploadSheet.Cells(i, 65)
+        Set FlexNum10_Range = UploadSheet.Cells(i, 66)
+        Set FlexDate1_Range = UploadSheet.Cells(i, 67)
+        Set FlexDate2_Range = UploadSheet.Cells(i, 68)
+        Set FlexDate3_Range = UploadSheet.Cells(i, 69)
+        Set FlexDate4_Range = UploadSheet.Cells(i, 70)
+        Set FlexDate5_Range = UploadSheet.Cells(i, 71)
+        Set Total_Tax_Amount_Range = UploadSheet.Cells(i, 72)
+        Set Reserved1_Range = UploadSheet.Cells(i, 73)
+        Set State_Tax_Range = UploadSheet.Cells(i, 74)
+        Set County_Tax_Range = UploadSheet.Cells(i, 75)
+        Set City_Tax_Range = UploadSheet.Cells(i, 76)
+        Set Other_Taxes_Range = UploadSheet.Cells(i, 77)
+        Set GST_HST_Tax_Range = UploadSheet.Cells(i, 78)
+        Set PST_Tax_Range = UploadSheet.Cells(i, 79)
+        Set Notes_Range = UploadSheet.Cells(i, 80)
+    
+    
+        Document_Number_Range.Formula = "=" & """C""" & " & RIGHT(LEFT(" & Sage_InvoiceNo.Address(External:=True) & " & ""-"" & " & Sage_InvoiceType.Address(External:=True) & ", 7), 6)"
+        Document_Number_Range.Value = Document_Number_Range.Value & "-" & Sage_InvoiceType.Value
+        Document_Date_Range.Value = CorrectionDate
+        Document_Date_Range.NumberFormat = "mm/dd/yyyy"
+        Posting_Date_Range.Value = CorrectionDate
+        Posting_Date_Range.NumberFormat = "mm/dd/yyyy"
+        Location_Code_Range.Value = ""
+        Company_Code_Range.Value = "FOT"
+        Phys_Origin_TAID_Range.Value = ""
+        Phys_Origin_Street_Address_Range.Value = "5 Commonwealth Avenue, Unit 6"
+        Phys_Origin_City_Range.Value = "Woburn"
+        Phys_Origin_State_Range.Value = "MA"
+        Phys_Origin_Zip_Range.Value = "01801"
+        Phys_Origin_Country_Range.Value = "USA"
+        Customer_Code_Range.Formula = ""
+        Customer_Class_Code_Range.Value = ""
+        Certificate_Number_Range.Value = ""
+        Shipping_Term_Range.Value = ""
+        Destination_TAID_Range.Value = ""
+        Destination_Street_Address_Range.Value = "=" & Sage_CombinedAddress.Address(External:=True)
+        Destination_City_Range.Value = "=" & Sage_ShipToCity.Address(External:=True)
+        Destination_State_Range.Value = "=" & Sage_ShipToState.Address(External:=True)
+        Destination_Zip_Range.Value = "=" & Sage_ShipToZipCode.Address(External:=True)
+        Destination_Country_Range.Value = "=" & Sage_ShipToCountryCode.Address(External:=True)
+        Line_Item_Number_Range = i - WorksheetFunction.CountA(RawData.Range("A:A")) - 1
+        Product_Code_Range.Value = "=" & Sage_ItemCode.Address(External:=True)
+        Product_Class_Code_Range.Value = "=" & Sage_TaxClass.Address(External:=True)
+        Quantity_Range.Value = "=-" & Sage_QuantityShipped.Address(External:=True)
+        Unit_Price_Range.Value = "=" & Sage_UnitPrice.Address(External:=True)
+        Extended_Price_Range.Value = "=-" & Sage_ExtensionAmt.Address(External:=True)
+        Discount_Code_Range.Value = ""
+        Discount_Amount_Range.Value = ""
+        Discount_Percentage_Range.Value = ""
+        FlexCode01_Range.Value = ""
+    
+    
+        
+        If i = Number_of_Lines And Sage_FreightAmt.Value <> 0 Then
+        
+            Set Results_Range = UploadSheet.Cells(i + 1, 1)
+            Set Document_Number_Range = UploadSheet.Cells(i + 1, 2)
+            Set Document_Date_Range = UploadSheet.Cells(i + 1, 3)
+            Set Posting_Date_Range = UploadSheet.Cells(i + 1, 4)
+            Set Location_Code_Range = UploadSheet.Cells(i + 1, 5)
+            Set Company_Code_Range = UploadSheet.Cells(i + 1, 6)
+            Set Phys_Origin_TAID_Range = UploadSheet.Cells(i + 1, 7)
+            Set Phys_Origin_Street_Address_Range = UploadSheet.Cells(i + 1, 8)
+            Set Phys_Origin_City_Range = UploadSheet.Cells(i + 1, 9)
+            Set Phys_Origin_State_Range = UploadSheet.Cells(i + 1, 10)
+            Set Phys_Origin_Zip_Range = UploadSheet.Cells(i + 1, 11)
+            Set Phys_Origin_Country_Range = UploadSheet.Cells(i + 1, 12)
+            Set Customer_Code_Range = UploadSheet.Cells(i + 1, 13)
+            Set Customer_Class_Code_Range = UploadSheet.Cells(i + 1, 14)
+            Set Certificate_Number_Range = UploadSheet.Cells(i + 1, 15)
+            Set Shipping_Term_Range = UploadSheet.Cells(i + 1, 16)
+            Set Destination_TAID_Range = UploadSheet.Cells(i + 1, 17)
+            Set Destination_Street_Address_Range = UploadSheet.Cells(i + 1, 18)
+            Set Destination_City_Range = UploadSheet.Cells(i + 1, 19)
+            Set Destination_State_Range = UploadSheet.Cells(i + 1, 20)
+            Set Destination_Zip_Range = UploadSheet.Cells(i + 1, 21)
+            Set Destination_Country_Range = UploadSheet.Cells(i + 1, 22)
+            Set Line_Item_Number_Range = UploadSheet.Cells(i + 1, 23)
+            Set Product_Code_Range = UploadSheet.Cells(i + 1, 24)
+            Set Product_Class_Code_Range = UploadSheet.Cells(i + 1, 25)
+            Set Quantity_Range = UploadSheet.Cells(i + 1, 26)
+            Set Unit_Price_Range = UploadSheet.Cells(i + 1, 27)
+            Set Extended_Price_Range = UploadSheet.Cells(i + 1, 28)
+            Set Discount_Code_Range = UploadSheet.Cells(i + 1, 29)
+            Set Discount_Amount_Range = UploadSheet.Cells(i + 1, 30)
+            Set Discount_Percentage_Range = UploadSheet.Cells(i + 1, 31)
+            Set FlexCode01_Range = UploadSheet.Cells(i + 1, 32)
+            Set FlexCode02_Range = UploadSheet.Cells(i + 1, 33)
+            Set FlexCode03_Range = UploadSheet.Cells(i + 1, 34)
+            Set FlexCode04_Range = UploadSheet.Cells(i + 1, 35)
+            Set FlexCode05_Range = UploadSheet.Cells(i + 1, 36)
+            Set FlexCode06_Range = UploadSheet.Cells(i + 1, 37)
+            Set FlexCode07_Range = UploadSheet.Cells(i + 1, 38)
+            Set FlexCode08_Range = UploadSheet.Cells(i + 1, 39)
+            Set FlexCode09_Range = UploadSheet.Cells(i + 1, 40)
+            Set FlexCode10_Range = UploadSheet.Cells(i + 1, 41)
+            Set FlexCode11_Range = UploadSheet.Cells(i + 1, 42)
+            Set FlexCode12_Range = UploadSheet.Cells(i + 1, 43)
+            Set FlexCode13_Range = UploadSheet.Cells(i + 1, 44)
+            Set FlexCode14_Range = UploadSheet.Cells(i + 1, 45)
+            Set FlexCode15_Range = UploadSheet.Cells(i + 1, 46)
+            Set FlexCode16_Range = UploadSheet.Cells(i + 1, 47)
+            Set FlexCode17_Range = UploadSheet.Cells(i + 1, 48)
+            Set FlexCode18_Range = UploadSheet.Cells(i + 1, 49)
+            Set FlexCode19_Range = UploadSheet.Cells(i + 1, 50)
+            Set FlexCode20_Range = UploadSheet.Cells(i + 1, 51)
+            Set FlexCode21_Range = UploadSheet.Cells(i + 1, 52)
+            Set FlexCode22_Range = UploadSheet.Cells(i + 1, 53)
+            Set FlexCode23_Range = UploadSheet.Cells(i + 1, 54)
+            Set FlexCode24_Range = UploadSheet.Cells(i + 1, 55)
+            Set FlexCode25_Range = UploadSheet.Cells(i + 1, 56)
+            Set FlexNum1_Range = UploadSheet.Cells(i + 1, 57)
+            Set FlexNum2_Range = UploadSheet.Cells(i + 1, 58)
+            Set FlexNum3_Range = UploadSheet.Cells(i + 1, 59)
+            Set FlexNum4_Range = UploadSheet.Cells(i + 1, 60)
+            Set FlexNum5_Range = UploadSheet.Cells(i + 1, 61)
+            Set FlexNum6_Range = UploadSheet.Cells(i + 1, 62)
+            Set FlexNum7_Range = UploadSheet.Cells(i + 1, 63)
+            Set FlexNum8_Range = UploadSheet.Cells(i + 1, 64)
+            Set FlexNum9_Range = UploadSheet.Cells(i + 1, 65)
+            Set FlexNum10_Range = UploadSheet.Cells(i + 1, 66)
+            Set FlexDate1_Range = UploadSheet.Cells(i + 1, 67)
+            Set FlexDate2_Range = UploadSheet.Cells(i + 1, 68)
+            Set FlexDate3_Range = UploadSheet.Cells(i + 1, 69)
+            Set FlexDate4_Range = UploadSheet.Cells(i + 1, 70)
+            Set FlexDate5_Range = UploadSheet.Cells(i + 1, 71)
+            Set Total_Tax_Amount_Range = UploadSheet.Cells(i + 1, 72)
+            Set Reserved1_Range = UploadSheet.Cells(i + 1, 73)
+            Set State_Tax_Range = UploadSheet.Cells(i + 1, 74)
+            Set County_Tax_Range = UploadSheet.Cells(i + 1, 75)
+            Set City_Tax_Range = UploadSheet.Cells(i + 1, 76)
+            Set Other_Taxes_Range = UploadSheet.Cells(i + 1, 77)
+            Set GST_HST_Tax_Range = UploadSheet.Cells(i + 1, 78)
+            Set PST_Tax_Range = UploadSheet.Cells(i + 1, 79)
+            Set Notes_Range = UploadSheet.Cells(i + 1, 80)
+            
+            
+            Document_Number_Range.Formula = "=" & """C""" & " & RIGHT(LEFT(" & Sage_InvoiceNo.Address(External:=True) & " & ""-"" & " & Sage_InvoiceType.Address(External:=True) & ", 7), 6)"
+            Document_Number_Range.Value = Document_Number_Range.Value & "-" & Sage_InvoiceType.Value
+            Document_Date_Range.Value = CorrectionDate
+            Document_Date_Range.NumberFormat = "mm/dd/yyyy"
+            Posting_Date_Range.Value = CorrectionDate
+            Posting_Date_Range.NumberFormat = "mm/dd/yyyy"
+            Location_Code_Range.Value = ""
+            Company_Code_Range.Value = "FOT"
+            Phys_Origin_TAID_Range.Value = ""
+            Phys_Origin_Street_Address_Range.Value = "5 Commonwealth Avenue, Unit 6"
+            Phys_Origin_City_Range.Value = "Woburn"
+            Phys_Origin_State_Range.Value = "MA"
+            Phys_Origin_Zip_Range.Value = "01801"
+            Phys_Origin_Country_Range.Value = "USA"
+            
+            Customer_Code_Range.Formula = ""
+            Customer_Class_Code_Range.Value = ""
+            Certificate_Number_Range.Value = ""
+            Shipping_Term_Range.Value = ""
+            Destination_TAID_Range.Value = ""
+            Destination_Street_Address_Range.Value = "=" & Sage_CombinedAddress.Address(External:=True)
+            Destination_City_Range.Value = "=" & Sage_ShipToCity.Address(External:=True)
+            Destination_State_Range.Value = "=" & Sage_ShipToState.Address(External:=True)
+            Destination_Zip_Range.Value = "=" & Sage_ShipToZipCode.Address(External:=True)
+            Destination_Country_Range.Value = "=" & Sage_ShipToCountryCode.Address(External:=True)
+            Line_Item_Number_Range = i
+            Product_Code_Range.Value = ""
+            Product_Class_Code_Range.Value = "FREIGHT"
+            Quantity_Range.Value = "1"
+            Unit_Price_Range.Value = "=" & Sage_FreightAmt.Address(External:=True)
+            Extended_Price_Range.Value = "=-" & Sage_FreightAmt.Address(External:=True)
+        
+        End If
+     
+
+Next i
+ 
+End If
+ 
+Call DeleteRowsWithZeroUnitPrice
+ 
+ 
+ 
+ Sheets("Sheet1").Delete
+ 
+ CorrectionState = Sage_ShipToState.Value
+ 
+    Dim SaveName As String
+    Dim SaveDir As String
+    SaveName = Format(Now(), "yyyy-mm-dd") & " " & CorrectionState & " Vertex Correction for Invoice " & InvoiceNo
+    SaveDir = "T:\Christopher.Bartus\Vertex_Correction_Uploads\"
+    
+    ' Save as .xlsx
+    ActiveWorkbook.SaveAs fileName:=SaveDir & SaveName & ".xlsx", FileFormat:=xlOpenXMLWorkbook
+    
+    ' Save as .csv
+    Dim ws As Worksheet
+    For Each ws In ActiveWorkbook.Worksheets
+        ' Save each worksheet as a .csv file
+        ws.SaveAs fileName:=SaveDir & SaveName & " - " & ws.Name & ".csv", FileFormat:=xlCSV
+    Next ws
+
+
+
+
+
+
+End Sub
+
+Sub DeleteRowsWithZeroUnitPrice()
+    Dim i As Long
+    Dim lastRow As Long
+    Dim Unit_Price_Range As Range
+    Dim UploadSheet As Worksheet
+    
+    ' Define UploadSheet as the worksheet named "Upload"
+    Set UploadSheet = ActiveWorkbook.Sheets("Upload")
+    
+    ' Get the last row with data in column AA
+    lastRow = WorksheetFunction.CountA(UploadSheet.Range("AA:AA"))
+    
+    ' Loop from the last row to the second row (bottom-up)
+    For i = lastRow To 2 Step -1
+        Set Unit_Price_Range = UploadSheet.Cells(i, 27)
+        
+        ' If Unit Price is 0, delete the row
+        If Unit_Price_Range.Value = 0 Then
+            Unit_Price_Range.EntireRow.Delete
+        End If
+    Next i
 End Sub
 
