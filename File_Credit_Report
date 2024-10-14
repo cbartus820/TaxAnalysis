@@ -3,7 +3,7 @@ Sub Save_FOT_Credit_Report()
 Dim Credit_Report_CSV As Workbook
 Dim Killbook As String
 
-Dim Savename As String
+Dim SaveName As String
 Dim SaveFileName As String
 Dim SaveFolder As String
 Dim SaveDir As String
@@ -19,9 +19,9 @@ SaveDrive = "C:"
 SaveFolder = "\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Vertex\Vertex - Credit Report\"
 SaveDir = SaveDrive & SaveFolder
 SaveFileName = Format(ActiveSheet.Range("C2").Value, "yyyy-mm") & " FOT_Credits_And_Adjustments.csv"
-Savename = SaveDir & SaveFileName
+SaveName = SaveDir & SaveFileName
 
-Credit_Report_CSV.SaveCopyAs (Savename)
+Credit_Report_CSV.SaveCopyAs (SaveName)
 Credit_Report_CSV.Close
 
 Kill Killbook
@@ -38,7 +38,7 @@ Sub Save_Unassigned_Data_Report()
 Dim Credit_Report_CSV As Workbook
 Dim Killbook As String
 
-Dim Savename As String
+Dim SaveName As String
 Dim SaveFileName As String
 Dim SaveFolder As String
 Dim SaveDir As String
@@ -54,9 +54,9 @@ SaveDrive = "C:"
 SaveFolder = "\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Vertex\Vertex Unassigned Data Report\"
 SaveDir = SaveDrive & SaveFolder
 SaveFileName = Format(ActiveSheet.Range("A3").Value, "yyyy-mm") & " FOT_Returns_Unassigned_Data.csv"
-Savename = SaveDir & SaveFileName
+SaveName = SaveDir & SaveFileName
 
-Credit_Report_CSV.SaveCopyAs (Savename)
+Credit_Report_CSV.SaveCopyAs (SaveName)
 Credit_Report_CSV.Close
 
 Kill Killbook
@@ -70,7 +70,7 @@ Sub Save_Reconciliation_Report()
 Dim Credit_Report_CSV As Workbook
 Dim Killbook As String
 
-Dim Savename As String
+Dim SaveName As String
 Dim SaveFileName As String
 Dim SaveFolder As String
 Dim SaveDir As String
@@ -86,9 +86,9 @@ SaveDrive = "C:"
 SaveFolder = "\Users\christopher.bartus\Fotronic Dropbox\Christopher Bartus\Multi-State Sales Tax\Vertex\Vertex - Returns Reconciliation Report\"
 SaveDir = SaveDrive & SaveFolder
 SaveFileName = Format(ActiveSheet.Range("C2").Value, "yyyy-mm") & " FOT_Returns_Reconciliation.csv"
-Savename = SaveDir & SaveFileName
+SaveName = SaveDir & SaveFileName
 
-Credit_Report_CSV.SaveCopyAs (Savename)
+Credit_Report_CSV.SaveCopyAs (SaveName)
 Credit_Report_CSV.Close
 
 Kill Killbook
@@ -97,9 +97,6 @@ End Sub
 
 
 Sub Save_Vertex_Returns_Copy()
-
-
-
 
 Dim SaveFolder As String
 Dim SaveDir As String
