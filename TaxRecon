@@ -1008,7 +1008,7 @@ End Sub
 Private Sub Step_05_Secondary_Subfunction_BuildSageQuery()
 'Depending on whether user indicated using Quanda or Sage as Data Source format SQL querry to company data
 
-    ConString = "DSN=SOTAMAS90; UID=cba; PWD=Huya7; Directory=\\fot00erp\Sage100_2020\MAS90; Prefix=\\fot00erp\Sage100_2020\MAS90\SY\, \\fot00erp\Sage100_2020\MAS90\==\; ViewDLL=\\fot00erp\Sage100_2020\MAS90\HOME; Company=fot; LogFile=\PVXODBC.LOG; CacheSize=4; DirtyReads=1; BurstMode=1; StripTrailingSpaces=1; SERVER=NotTheServer"
+    ConString = "DSN=SOTAMAS90; UID=<removed for security>; PWD=<removed for security>; Directory=\\fot00erp\Sage100_2020\MAS90; Prefix=<removed for security>, <removed for security>; <removed for security>; Company=<removed for security>; LogFile=<removed for security>; CacheSize=<removed for security>; DirtyReads=<removed for security>; BurstMode=<removed for security>; StripTrailingSpaces=1; SERVER=<removed for security>"
 
 If InStr(ReconState, "ALL") > 0 Then
     SQL = "SELECT * FROM AR_InvoiceHistoryHeader WHERE " & _
