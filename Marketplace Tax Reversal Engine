@@ -1,0 +1,166 @@
+import re
+import pandas as pd
+from datetime import datetime
+import pyodbc as con
+import csv
+
+# formatting helpers
+def fmt_inv(v: str) -> str:
+    s = str(v).strip()
+    return s if not s.isdigit() else s.zfill(7)
+
+def amt2(x) -> str:
+    return f"{float(x):.2f}"
+
+# will use global apply_map at call time
+def resolve_apply_to(row):
+    inv_raw = str(row["InvoiceNo"]).strip()
+    if str(row["InvoiceType"]).strip() in ("CM", "DM"):
+        inv_unp = inv_raw.lstrip("0") or "0"
+        ap = apply_map.get(inv_raw) or apply_map.get(inv_unp)
+        return ap if ap else None  # skip CM/DM with no target to avoid prepayments
+    return inv_raw
+
+conn = con.connect(
+    r"DSN=SOTAMAS90; UID=cba; PWD=Huya7; "
+    r"Directory=\\fot00erp24\E\acct\v2024\MAS90; "
+    r"Prefix=\\fot00erp24\E\acct\v2024\MAS90\SY\, \\fot00erp24\E\acct\v2024\MAS90\==\; "
+    r"ViewDLL=\\fot00erp24\E\acct\v2024\MAS90\HOME; "
+    r"Company=FOT; LogFile=\PVXODBC.LOG; CacheSize=4; DirtyReads=1; BurstMode=1; "
+    r"StripTrailingSpaces=1; SERVER=NotTheServer",
+    autocommit=True
+)
+
+start_date = "2025-08-01"
+end_date   = "2025-08-31"
+customer   = "AMAZ002"
+
+# --- AR_SalesTax with type ---
+sql = f"""
+SELECT TransactionDate, InvoiceNo, SalesTaxInvoiced, InvoiceType
+FROM AR_SalesTax
+WHERE TransactionDate >= {{d '{start_date}'}} 
+  AND TransactionDate <= {{d '{end_date}'}} 
+  AND CustomerNo = '{customer}'
+"""
+tax_df = pd.read_sql(sql, conn)
+tax_df = tax_df[(tax_df["SalesTaxInvoiced"].notna()) & (tax_df["SalesTaxInvoiced"] != 0)].copy()
+tax_df["TransactionDate"] = pd.to_datetime(tax_df["TransactionDate"]).dt.date
+
+# keep InvoiceType with the sum
+invoice_totals = (
+    tax_df.groupby(["TransactionDate", "InvoiceNo"], as_index=False)
+          .agg(InvoiceTaxTotal=("SalesTaxInvoiced", "sum"),
+               InvoiceType=("InvoiceType", "first"))
+)
+
+# --- Build list of CM/DM docs we actually need to resolve ---
+cm_dm = invoice_totals[invoice_totals["InvoiceType"].isin(["CM", "DM"])].copy()
+cm_dm["raw"] = cm_dm["InvoiceNo"].astype(str).str.strip()
+cm_dm["unpadded"] = cm_dm["raw"].str.lstrip("0").replace("", "0")
+search_vals = sorted(set(cm_dm["raw"]).union(set(cm_dm["unpadded"])))
+
+# Chunked fetch of apply-to mapping from history
+apply_df_list = []
+if search_vals:
+    chunk = 300
+    for i in range(0, len(search_vals), chunk):
+        slice_ids = search_vals[i:i+chunk]
+        placeholders = ",".join(["?"] * len(slice_ids))
+        q = f"""
+        SELECT InvoiceNo, ApplyToInvoiceNo
+        FROM AR_InvoiceHistoryHeader
+        WHERE CustomerNo = ?
+          AND InvoiceType IN ('CM','DM')
+          AND InvoiceNo IN ({placeholders})
+        """
+        params = [customer] + slice_ids
+        apply_df_list.append(pd.read_sql(q, conn, params=params))
+
+apply_df = (
+    pd.concat(apply_df_list, ignore_index=True)
+    if apply_df_list else
+    pd.DataFrame(columns=["InvoiceNo", "ApplyToInvoiceNo"])
+)
+
+# normalize + two-key map (padded & unpadded)
+apply_df["InvoiceNo"] = apply_df["InvoiceNo"].astype(str).str.strip()
+apply_df["ApplyToInvoiceNo"] = apply_df["ApplyToInvoiceNo"].astype(str).str.strip()
+apply_map = {}
+apply_map.update(dict(zip(apply_df["InvoiceNo"], apply_df["ApplyToInvoiceNo"])))
+apply_map.update(dict(zip(apply_df["InvoiceNo"].str.lstrip("0").replace("", "0"),
+                          apply_df["ApplyToInvoiceNo"])))
+
+# resolve apply-to, skip CM/DM without a target
+invoice_totals["ApplyToUse"] = invoice_totals.apply(resolve_apply_to, axis=1)
+skipped = invoice_totals["ApplyToUse"].isna().sum()
+if skipped:
+    print(f"Skipping {skipped} CM/DM rows with no ApplyToInvoiceNo to avoid prepayments.")
+invoice_totals = invoice_totals[invoice_totals["ApplyToUse"].notna()].copy()
+
+# --- deposit headers (one row per date; no header row) ---
+unique_dates = sorted(invoice_totals["TransactionDate"].unique())
+rows = [[pd.to_datetime(d).strftime("%m/%d/%Y"), "", "0.00"] for d in unique_dates]
+out_path = r"\\goalie\shares\Fotronic\Christopher.Bartus\mktplctaxdepheaders.csv"
+pd.DataFrame(rows).to_csv(out_path, index=False, header=False)
+print(f"Wrote deposit headers: {out_path}")
+
+# --- pull deposits after header import ---
+sql_deposits = f"""
+SELECT DepositNo, DepositDate
+FROM AR_CashReceiptsDeposit
+WHERE DepositDate >= {{d '{start_date}'}} 
+  AND DepositDate <= {{d '{end_date}'}} 
+  AND UserCreatedKey = '0000000352'
+"""
+deposit_df = pd.read_sql(sql_deposits, conn)
+deposit_df["DepositDate"] = pd.to_datetime(deposit_df["DepositDate"]).dt.date
+
+# Inspect duplicates by date (optional)
+dupes = deposit_df["DepositDate"].value_counts()
+dupe_dates = dupes[dupes > 1]
+if not dupe_dates.empty:
+    print("Multiple deposits on these dates, keeping the latest DepositNo per date:",
+          sorted(dupe_dates.index))
+
+# Ensure numeric ordering of DepositNo, then keep the latest per date
+try:
+    deposit_df["DepositNo"] = deposit_df["DepositNo"].astype(int)
+except Exception:
+    pass  # if it's already int or safely sortable as string
+
+deposit_df = (
+    deposit_df.sort_values(["DepositDate", "DepositNo"])
+              .drop_duplicates(subset=["DepositDate"], keep="last")
+)
+
+ans = input("Upload headers in VI, then type YES to continue: ")
+if ans.strip().lower() in ("yes", "y"):
+    work = invoice_totals.merge(
+        deposit_df.rename(columns={"DepositDate": "TransactionDate"}),
+        on="TransactionDate",
+        how="left",
+        validate="many_to_one"
+    )
+
+    missing_dep = work[work["DepositNo"].isna()]
+    if not missing_dep.empty:
+        raise RuntimeError(
+            "Invoices missing DepositNo (import headers first):\n"
+            + missing_dep[["TransactionDate", "InvoiceNo"]].drop_duplicates().to_string(index=False)
+        )
+
+    out_path = r"\\goalie\shares\Fotronic\Christopher.Bartus\mktplctaxdepdetail.csv"
+    with open(out_path, "w", newline="") as f:
+        w = csv.writer(f, lineterminator="\r\n")
+        for dep_no, grp in (
+            work.sort_values(["TransactionDate", "DepositNo", "InvoiceNo"])
+                .groupby("DepositNo", sort=True)
+        ):
+            w.writerow(["H", str(int(dep_no)), "MKTPLCT", "0.00"])
+            for _, r in grp.iterrows():
+                apply_to = fmt_inv(r["ApplyToUse"])
+                amt = round(float(r["InvoiceTaxTotal"]), 2)
+                w.writerow(["L", "I", apply_to, "", "0", amt2(amt)])
+                w.writerow(["L", "G", "", "243000000", "0", amt2(-amt)])
+    print(f"Wrote combined detail file: {out_path}")
